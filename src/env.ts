@@ -29,7 +29,17 @@ const schema = z.object({
   // ── Database ──────────────────────────────────────────────────────────────
   // Unset means "use the bundled in-process PostgreSQL", which is the
   // zero-setup path for development and CI.
+  //
+  // Managed providers inject their own names. Vercel's Postgres and Neon
+  // integrations set POSTGRES_URL and POSTGRES_PRISMA_URL, and never
+  // DATABASE_URL — so attaching a database in the dashboard used to leave this
+  // application still insisting no database was configured, which is a
+  // confusing way to be wrong. Any of the three is accepted; the connection
+  // pooler's URL is preferred where one is offered, because serverless opens
+  // far more connections than a managed instance will allow.
   DATABASE_URL: optionalString,
+  POSTGRES_PRISMA_URL: optionalString,
+  POSTGRES_URL: optionalString,
   PGLITE_DATA_DIR: z.preprocess(emptyToUndefined, z.string().default(".pglite")),
 
   // ── Application ───────────────────────────────────────────────────────────
@@ -110,7 +120,11 @@ function parseEnv(): Env {
     );
   }
 
-  const env = parsed.data;
+  const env = {
+    ...parsed.data,
+    DATABASE_URL:
+      parsed.data.DATABASE_URL ?? parsed.data.POSTGRES_PRISMA_URL ?? parsed.data.POSTGRES_URL,
+  };
 
   // Cross-field rules. Each of these is a misconfiguration that would only
   // surface much later — at the first payment, the first upload, the first
@@ -136,7 +150,9 @@ function parseEnv(): Env {
     if (!env.DATABASE_URL) {
       problems.push(
         "DATABASE_URL must point at a PostgreSQL server in production. " +
-          "The bundled in-process database is for development and CI only.",
+          "POSTGRES_PRISMA_URL and POSTGRES_URL are accepted too, so attaching a database " +
+          "in a hosting dashboard is enough. The bundled in-process database is for " +
+          "development and CI only.",
       );
     }
     if (env.PAYMENT_PROVIDER === "sandbox" && !env.ALLOW_SANDBOX_PAYMENTS) {

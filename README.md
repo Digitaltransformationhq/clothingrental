@@ -200,14 +200,14 @@ Every variable is documented in [`.env.example`](.env.example) and validated at 
 
 Only `BETTER_AUTH_SECRET` is required in development. Everything else has a working default:
 
-| Variable            | Default    | Effect                                             |
-| ------------------- | ---------- | -------------------------------------------------- |
-| `DATABASE_URL`      | _(empty)_  | Empty uses the bundled database                    |
-| `PAYMENT_PROVIDER`  | `sandbox`  | Deterministic in-process provider; contacts nobody |
-| `STORAGE_DRIVER`    | `local`    | Uploads to `public/uploads`                        |
-| `EMAIL_DRIVER`      | `console`  | Prints emails to the log; sends nothing            |
-| `SEARCH_DRIVER`     | `postgres` | PostgreSQL full-text search                        |
-| `RATE_LIMIT_DRIVER` | `memory`   | In-process; use `redis` on more than one node      |
+| Variable            | Default                                                                                                                                                                                             | Effect                                             |
+| ------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------- |
+| `DATABASE_URL`      | A real PostgreSQL server. `POSTGRES_PRISMA_URL` and `POSTGRES_URL` are accepted too, so attaching a database in a hosting dashboard is enough. The bundled database is for development and CI only. |
+| `PAYMENT_PROVIDER`  | `sandbox`                                                                                                                                                                                           | Deterministic in-process provider; contacts nobody |
+| `STORAGE_DRIVER`    | `local`                                                                                                                                                                                             | Uploads to `public/uploads`                        |
+| `EMAIL_DRIVER`      | `console`                                                                                                                                                                                           | Prints emails to the log; sends nothing            |
+| `SEARCH_DRIVER`     | `postgres`                                                                                                                                                                                          | PostgreSQL full-text search                        |
+| `RATE_LIMIT_DRIVER` | `memory`                                                                                                                                                                                            | In-process; use `redis` on more than one node      |
 
 The sandbox payment provider is a full implementation of the payment port — idempotency, capture
 limits, partial refunds, HMAC-signed webhooks — not a stub that returns success. Amounts ending in
