@@ -1,0 +1,48 @@
+name: CI
+
+# Vercel deploys every push to main on its own. This runs beside it so a commit
+# that does not compile is visible as a failed check rather than only as a
+# broken deployment — and so pull requests are gated before they ever reach it.
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  # A newer push makes an in-flight run for the same branch pointless.
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    env:
+      # No DATABASE_URL: the suite runs against the bundled in-process
+      # PostgreSQL, which is the same engine and the same migrations as
+      # production. Nothing here needs a server.
+      CI: "true"
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+
+      # `npm ci` runs the postinstall, which generates the Prisma client.
+      - run: npm ci
+
+      - name: Types
+        run: npm run typecheck
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Formatting
+        run: npm run format:check
+
+      - name: Unit tests
+        run: npm test

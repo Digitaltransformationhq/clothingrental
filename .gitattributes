@@ -1,0 +1,20 @@
+# One line ending everywhere.
+#
+# The repository is worked on from Windows, where Git's default `autocrlf`
+# rewrites files to CRLF on checkout. Prettier is configured for LF, so files
+# touched on Windows started failing `prettier --check` for their line endings
+# alone — which is noise in a diff and, once there is a format gate in CI, a
+# red build for nothing.
+#
+# `text=auto eol=lf` normalises to LF in the repository and checks LF out on
+# every platform, so the working copy and the committed bytes agree.
+* text=auto eol=lf
+
+# Binary, never touched.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.webp binary
+*.ico binary
+*.woff binary
+*.woff2 binary

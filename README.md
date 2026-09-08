@@ -240,16 +240,42 @@ that an unsigned payment webhook is rejected.
 
 ## Deployment
 
+### Vercel
+
+Every push to `main` deploys. `vercel.json` points the build at `npm run vercel-build`, which runs
+`prisma migrate deploy` before `next build` — the ordinary `build` script deliberately does not, so
+that compiling the project on a laptop still needs no database.
+
+Configure these in the project's environment variables before the first deploy. The application
+validates them at boot and refuses to start if any are wrong, so a missing one is a 500 on every
+route rather than a subtle failure later:
+
+| Variable                      | Notes                                                                          |
+| ----------------------------- | ------------------------------------------------------------------------------ |
+| `DATABASE_URL`                | A real PostgreSQL server. The bundled database is for development and CI only. |
+| `BETTER_AUTH_SECRET`          | 32+ characters. `openssl rand -base64 32`.                                     |
+| `NEXT_PUBLIC_APP_URL`         | The canonical origin, e.g. `https://example.vercel.app`.                       |
+| `BETTER_AUTH_URL`             | The same origin.                                                               |
+| `PAYMENT_PROVIDER`            | `razorpay` or `stripe`, with that provider's keys. `sandbox` is refused.       |
+| `STORAGE_DRIVER`              | `s3`, with the bucket credentials. The filesystem is read-only on Vercel.      |
+| `NEXT_PUBLIC_UPLOAD_BASE_URL` | The bucket's public URL. Without it, uploaded images 404.                      |
+| `EMAIL_DRIVER`                | `resend`, with its key.                                                        |
+
+Then create an administrator against the production database, with a password of your own:
+
+```bash
+ADMIN_EMAIL=you@example.com ADMIN_PASSWORD=… npm run admin:create
+```
+
+Point the payment provider's webhook at `/api/webhooks/payments`.
+
+### Anywhere else
+
 ```bash
 npm run db:deploy    # apply migrations
 npm run build
 npm start
 ```
-
-Set at minimum: `DATABASE_URL`, `BETTER_AUTH_SECRET` (32+ characters), `NEXT_PUBLIC_APP_URL`, a real
-`PAYMENT_PROVIDER` with its keys, `STORAGE_DRIVER=s3` with bucket credentials, and
-`EMAIL_DRIVER=resend`. The application refuses to start in production with a sandbox payment
-provider or the bundled database.
 
 Point the payment provider's webhook at `/api/webhooks/payments`. `/api/health` queries the database
 and is suitable for a load balancer.
