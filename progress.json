@@ -1,0 +1,275 @@
+{
+  "updated": "Complete",
+  "note": "All checks passing: 112 unit tests, 46 end-to-end tests, 0 accessibility violations, clean typecheck, lint and production build.",
+  "groups": [
+    {
+      "title": "Foundation",
+      "items": [
+        {
+          "label": "Project scaffold, TypeScript, Tailwind 4 design tokens",
+          "state": "done"
+        },
+        {
+          "label": "PostgreSQL schema — 41 tables, enums, indexes",
+          "state": "done"
+        },
+        {
+          "label": "Migrations + integrity constraints & triggers",
+          "state": "done"
+        },
+        {
+          "label": "Dual database runtime (bundled PGlite / real Postgres)",
+          "state": "done"
+        },
+        {
+          "label": "Single-writer lock so concurrent access fails loudly",
+          "state": "done"
+        },
+        {
+          "label": "Validated environment configuration",
+          "state": "done"
+        }
+      ]
+    },
+    {
+      "title": "Domain logic",
+      "items": [
+        {
+          "label": "Money — integer minor units, no floats",
+          "state": "done"
+        },
+        {
+          "label": "Calendar dates — timezone-safe, half-open ranges",
+          "state": "done"
+        },
+        {
+          "label": "Availability engine (buffers, lead time, policy)",
+          "state": "done"
+        },
+        {
+          "label": "Pricing engine (base + extra days, fees, GST, deposit)",
+          "state": "done"
+        },
+        {
+          "label": "Booking state machine with permitted transitions",
+          "state": "done"
+        },
+        {
+          "label": "112 unit tests passing, incl. DB-backed concurrency",
+          "state": "done"
+        }
+      ]
+    },
+    {
+      "title": "Backend services",
+      "items": [
+        {
+          "label": "Authentication, sessions, role-based access",
+          "state": "done"
+        },
+        {
+          "label": "Booking service — advisory locks, no double-booking",
+          "state": "done"
+        },
+        {
+          "label": "Payment abstraction + Razorpay, Stripe, sandbox",
+          "state": "done"
+        },
+        {
+          "label": "Object storage with MIME/size validation, EXIF stripping",
+          "state": "done"
+        },
+        {
+          "label": "Rate limiting, typed errors, audit logging",
+          "state": "done"
+        },
+        {
+          "label": "Catalogue, search, messaging, admin services",
+          "state": "done"
+        },
+        {
+          "label": "Payment webhook endpoint",
+          "state": "done"
+        },
+        {
+          "label": "Transactional email adapter",
+          "state": "done"
+        }
+      ]
+    },
+    {
+      "title": "Design system",
+      "items": [
+        {
+          "label": "Colour, type, spacing, motion tokens",
+          "state": "done"
+        },
+        {
+          "label": "Typographic + structural primitives",
+          "state": "done"
+        },
+        {
+          "label": "Generated photography (171 frames)",
+          "state": "done"
+        }
+      ]
+    },
+    {
+      "title": "Public site",
+      "items": [
+        {
+          "label": "Homepage — editorial hero, rails, occasions, trust",
+          "state": "done"
+        },
+        {
+          "label": "Shop with URL-driven filters, sort, pagination",
+          "state": "done"
+        },
+        {
+          "label": "Category pages",
+          "state": "done"
+        },
+        {
+          "label": "Listing detail — gallery, date picker, price breakdown",
+          "state": "done"
+        },
+        {
+          "label": "Search",
+          "state": "done"
+        },
+        {
+          "label": "Collections",
+          "state": "done"
+        },
+        {
+          "label": "How it works, About, Sell landing",
+          "state": "done"
+        },
+        {
+          "label": "Public wardrobe profiles, shared wishlists",
+          "state": "done"
+        },
+        {
+          "label": "Legal pages",
+          "state": "done"
+        }
+      ]
+    },
+    {
+      "title": "Commerce",
+      "items": [
+        {
+          "label": "Checkout with server-computed totals",
+          "state": "done"
+        },
+        {
+          "label": "Delivery address selection",
+          "state": "done"
+        },
+        {
+          "label": "Payment + confirmation",
+          "state": "done"
+        },
+        {
+          "label": "Verified end-to-end in a real browser",
+          "state": "done"
+        }
+      ]
+    },
+    {
+      "title": "Member area",
+      "items": [
+        {
+          "label": "My rentals with state-machine actions",
+          "state": "done"
+        },
+        {
+          "label": "My wardrobe — requests, bookings, listings",
+          "state": "done"
+        },
+        {
+          "label": "Earnings and payouts",
+          "state": "done"
+        },
+        {
+          "label": "Saved pieces",
+          "state": "done"
+        },
+        {
+          "label": "Messaging",
+          "state": "done"
+        },
+        {
+          "label": "Availability calendar",
+          "state": "done"
+        },
+        {
+          "label": "Settings, addresses, payout account",
+          "state": "done"
+        },
+        {
+          "label": "Listing wizard (8 steps, live preview, uploads)",
+          "state": "done"
+        },
+        {
+          "label": "Listing edit",
+          "state": "done"
+        },
+        {
+          "label": "Leave a review flow",
+          "state": "done"
+        }
+      ]
+    },
+    {
+      "title": "Admin",
+      "items": [
+        {
+          "label": "Overview, moderation queue",
+          "state": "done"
+        },
+        {
+          "label": "Members, rentals, payouts, reports",
+          "state": "done"
+        },
+        {
+          "label": "Authorisation verified (no leakage to members)",
+          "state": "done"
+        }
+      ]
+    },
+    {
+      "title": "Quality & release",
+      "items": [
+        {
+          "label": "Error, loading and not-found states",
+          "state": "done"
+        },
+        {
+          "label": "SEO — metadata, structured data, sitemap, robots",
+          "state": "done"
+        },
+        {
+          "label": "End-to-end tests (Playwright)",
+          "state": "done"
+        },
+        {
+          "label": "Full typecheck, lint, production build",
+          "state": "done"
+        },
+        {
+          "label": "Responsive + accessibility pass",
+          "state": "done"
+        },
+        {
+          "label": "README and documentation",
+          "state": "done"
+        },
+        {
+          "label": "Final visual review of every page",
+          "state": "done"
+        }
+      ]
+    }
+  ]
+}

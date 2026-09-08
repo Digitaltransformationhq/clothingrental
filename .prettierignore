@@ -1,0 +1,9 @@
+src/generated
+.next
+.pglite
+public/photography
+public/uploads
+prisma/migrations
+tests/.sessions
+test-results
+playwright-report

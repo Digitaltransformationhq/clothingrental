@@ -1,0 +1,1340 @@
+// ═══════════════════════════════════════════════════════════════════════════
+// ALMIRAH — peer-to-peer fashion rental marketplace
+//
+// Conventions used throughout this schema:
+//
+//  · Money is ALWAYS stored as an integer in the currency's minor unit
+//    (paise for INR). Fields carrying money end in `Minor`. Floating point is
+//    never used for money anywhere in this codebase.
+//  · Rates and percentages are stored in basis points (`Bps`); 1850 = 18.50%.
+//  · Every mutable table carries `createdAt` / `updatedAt`.
+//  · Only core PostgreSQL features are used — no extensions — so the schema
+//    runs unchanged on the bundled in-process database, on a managed
+//    PostgreSQL instance, and in CI.
+// ═══════════════════════════════════════════════════════════════════════════
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// IDENTITY & ACCESS
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// Platform-level authorisation role.
+///
+/// Note that "owner" is deliberately NOT a role. Any member may list a
+/// garment, so ownership is a property of a resource, not of a person, and is
+/// always checked against the resource itself. Roles exist only for
+/// platform-wide privilege.
+enum UserRole {
+  MEMBER
+  MODERATOR
+  ADMIN
+}
+
+enum AccountStatus {
+  ACTIVE
+  SUSPENDED
+  DEACTIVATED
+}
+
+model User {
+  id            String        @id @default(cuid())
+  email         String        @unique
+  emailVerified Boolean       @default(false)
+  name          String
+  image         String?
+  role          UserRole      @default(MEMBER)
+  status        AccountStatus @default(ACTIVE)
+
+  /// Set when a moderator suspends the account; surfaced to the member.
+  suspendedAt     DateTime?
+  suspendedReason String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  profile       Profile?
+  sessions      Session[]
+  accounts      Account[]
+  addresses     Address[]
+  items         ClothingItem[]
+  listings      Listing[]
+  rentals       Rental[]               @relation("RentalRenter")
+  ownedBookings RentalItem[]           @relation("BookingOwner")
+  wishlist      Wishlist?
+  payouts       Payout[]
+  payoutAccount PayoutAccount?
+  reviewsGiven  Review[]               @relation("ReviewAuthor")
+  reviewsGot    Review[]               @relation("ReviewSubject")
+  messages      Message[]
+  participation ConversationMember[]
+  notifications Notification[]
+  verifications IdentityVerification[]
+  reportsMade   Report[]               @relation("ReportReporter")
+  disputesOpen  Dispute[]              @relation("DisputeOpener")
+  auditEntries  AuditLog[]
+
+  @@index([role])
+  @@index([status])
+  @@index([createdAt])
+}
+
+/// Public-facing wardrobe identity. Split from `User` so that authentication
+/// data and published profile data have different exposure rules: a profile is
+/// safe to render publicly, a user row is not.
+model Profile {
+  id     String @id @default(cuid())
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  /// Public URL segment: /wardrobe/ananya-desai
+  handle    String  @unique
+  bio       String?
+  city      String?
+  state     String?
+  country   String  @default("IN")
+  avatarKey String?
+
+  /// Denormalised reputation, recomputed on review write inside the same
+  /// transaction. Reading these on every listing card must not require an
+  /// aggregate over the review table.
+  ratingAvgBps    Int @default(0)
+  ratingCount     Int @default(0)
+  rentalsHosted   Int @default(0)
+  rentalsTaken    Int @default(0)
+  responseRateBps Int @default(0)
+  responseMins    Int?
+
+  isIdentityVerified Boolean  @default(false)
+  joinedAt           DateTime @default(now())
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([city])
+  @@index([ratingAvgBps])
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  token     String   @unique
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  ipAddress String?
+  userAgent String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+model Account {
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  /// Identity provider origin. Together with `accountId` this is what makes a
+  /// federated identity unique — two providers may well issue the same subject
+  /// identifier, and conflating them would merge two people into one account.
+  issuer    String
+  accountId String
+  providerId String
+  accessToken           String?
+  refreshToken          String?
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope                 String?
+  idToken               String?
+  /// Scrypt hash produced by the auth layer. Never a plaintext password.
+  password              String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  @@unique([issuer, accountId])
+  @@index([userId])
+  @@index([providerId])
+}
+
+/// Short-lived tokens for email verification and password reset.
+model Verification {
+  id         String   @id @default(cuid())
+  identifier String
+  value      String
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([identifier])
+  @@index([expiresAt])
+}
+
+enum VerificationKind {
+  EMAIL
+  PHONE
+  GOVERNMENT_ID
+  PAYOUT_ACCOUNT
+}
+
+enum VerificationStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+/// Identity/trust verification of a member, reviewed by a moderator.
+/// Distinct from `Verification`, which holds auth tokens.
+model IdentityVerification {
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  kind   VerificationKind
+  status VerificationStatus @default(PENDING)
+  /// Storage key of the submitted document. Never a public URL.
+  documentKey String?
+  reviewedAt  DateTime?
+  reviewedBy  String?
+  notes       String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, kind])
+  @@index([status])
+}
+
+enum AddressKind {
+  HOME
+  WORK
+  PICKUP
+  OTHER
+}
+
+model Address {
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  kind       AddressKind @default(HOME)
+  label      String?
+  recipient  String
+  phone      String
+  line1      String
+  line2      String?
+  landmark   String?
+  city       String
+  state      String
+  postalCode String
+  country    String      @default("IN")
+  latitude   Float?
+  longitude  Float?
+  isDefault  Boolean     @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  rentalsDelivered Rental[] @relation("RentalDeliveryAddress")
+
+  @@index([userId])
+  @@index([city])
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// CATALOGUE TAXONOMY
+// ═══════════════════════════════════════════════════════════════════════════
+
+model Category {
+  id       String     @id @default(cuid())
+  slug     String     @unique
+  name     String
+  /// Short editorial line shown on the category landing page.
+  tagline  String?
+  parentId String?
+  parent   Category?  @relation("CategoryTree", fields: [parentId], references: [id])
+  children Category[] @relation("CategoryTree")
+
+  sortOrder Int     @default(0)
+  heroKey   String?
+
+  items ClothingItem[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([parentId])
+  @@index([sortOrder])
+}
+
+model Brand {
+  id   String @id @default(cuid())
+  slug String @unique
+  name String
+  /// Marks houses whose pieces qualify for the Designer edit.
+  isDesigner Boolean @default(false)
+
+  items ClothingItem[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([name])
+}
+
+enum SizeSystem {
+  ALPHA
+  NUMERIC_UK
+  NUMERIC_EU
+  NUMERIC_IN
+  FREE_SIZE
+}
+
+model Size {
+  id        String     @id @default(cuid())
+  slug      String     @unique
+  label     String
+  system    SizeSystem @default(ALPHA)
+  sortOrder Int        @default(0)
+
+  items ClothingItem[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([sortOrder])
+}
+
+model Color {
+  id   String @id @default(cuid())
+  slug String @unique
+  name String
+  /// Swatch rendered in the filter rail.
+  hex  String
+  /// Groups near-neighbours ("wine" and "maroon" both filter under "red").
+  family String
+
+  items ClothingItem[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([family])
+}
+
+model Occasion {
+  id        String  @id @default(cuid())
+  slug      String  @unique
+  name      String
+  tagline   String?
+  heroKey   String?
+  sortOrder Int     @default(0)
+
+  items ItemOccasion[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([sortOrder])
+}
+
+/// Explicit join model: a garment is worn to several occasions and the pairing
+/// carries no extra data today, but naming it keeps future attributes cheap.
+model ItemOccasion {
+  itemId     String
+  occasionId String
+  item       ClothingItem @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  occasion   Occasion     @relation(fields: [occasionId], references: [id], onDelete: Cascade)
+
+  @@id([itemId, occasionId])
+  @@index([occasionId])
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// THE GARMENT
+// ═══════════════════════════════════════════════════════════════════════════
+
+enum Gender {
+  WOMEN
+  MEN
+  UNISEX
+}
+
+/// Physical state of the garment, shown verbatim to renters.
+enum ItemCondition {
+  NEW_WITH_TAGS
+  LIKE_NEW
+  GENTLY_WORN
+  WELL_LOVED
+}
+
+/// A physical garment in a member's wardrobe. Owns everything intrinsic to the
+/// object; everything about *renting* it lives on `Listing`.
+model ClothingItem {
+  id      String @id @default(cuid())
+  ownerId String
+  owner   User   @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+
+  slug        String @unique
+  title       String
+  description String
+
+  brandId    String?
+  brand      Brand?   @relation(fields: [brandId], references: [id])
+  categoryId String
+  category   Category @relation(fields: [categoryId], references: [id])
+  sizeId     String
+  size       Size     @relation(fields: [sizeId], references: [id])
+  colorId    String
+  color      Color    @relation(fields: [colorId], references: [id])
+
+  gender    Gender        @default(WOMEN)
+  condition ItemCondition @default(LIKE_NEW)
+
+  /// Original retail value. Used to frame the rental saving and to sanity-check
+  /// the security deposit a member sets.
+  retailPriceMinor Int?
+
+  fabric           String?
+  careInstructions String?
+
+  /// Garment measurements in millimetres — integers, never floats.
+  bustMm     Int?
+  waistMm    Int?
+  hipMm      Int?
+  lengthMm   Int?
+  shoulderMm Int?
+  sleeveMm   Int?
+
+  images    ClothingImage[]
+  occasions ItemOccasion[]
+  listing   Listing?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([ownerId])
+  @@index([categoryId])
+  @@index([brandId])
+  @@index([sizeId])
+  @@index([colorId])
+  @@index([gender])
+}
+
+model ClothingImage {
+  id     String       @id @default(cuid())
+  itemId String
+  item   ClothingItem @relation(fields: [itemId], references: [id], onDelete: Cascade)
+
+  /// Opaque object-storage key. The public URL is derived at render time by the
+  /// media layer, so moving buckets or putting a CDN in front changes one
+  /// environment variable rather than every stored row.
+  storageKey String
+  alt        String
+  width      Int
+  height     Int
+  /// Tiny blurred preview, inlined to avoid a layout flash on first paint.
+  blurDataUrl String?
+  position    Int     @default(0)
+  isCover     Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([itemId, position])
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// THE LISTING
+// ═══════════════════════════════════════════════════════════════════════════
+
+enum ListingStatus {
+  DRAFT
+  PENDING_REVIEW
+  PUBLISHED
+  PAUSED
+  ARCHIVED
+}
+
+enum ModerationStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  FLAGGED
+  REMOVED
+}
+
+enum FulfilmentMode {
+  PICKUP
+  LOCAL_DELIVERY
+  SHIPPING
+}
+
+/// The rental offer for a garment: price, availability policy, handover terms
+/// and publication state. Exactly one listing per garment.
+model Listing {
+  id      String       @id @default(cuid())
+  itemId  String       @unique
+  item    ClothingItem @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  ownerId String
+  owner   User         @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+
+  status         ListingStatus    @default(DRAFT)
+  moderation     ModerationStatus @default(PENDING)
+  moderationNote String?
+  publishedAt    DateTime?
+
+  // ── Pricing ───────────────────────────────────────────────────────────────
+  // Rentals are priced as a base period plus a per-day extension, which is how
+  // this market actually quotes ("₹850 / 3 days"). A pure per-day model cannot
+  // express the standard weekend rate.
+  currency          String @default("INR")
+  baseRateMinor     Int
+  baseDurationDays  Int    @default(3)
+  extraDayRateMinor Int
+  depositMinor      Int
+  cleaningFeeMinor  Int    @default(0)
+
+  // ── Availability policy ───────────────────────────────────────────────────
+  minRentalDays Int @default(3)
+  maxRentalDays Int @default(14)
+  /// Turnaround days reserved after every rental for cleaning and inspection.
+  /// Enforced server-side when checking availability.
+  bufferDays    Int @default(1)
+  /// Earliest a rental may start, counted from today.
+  leadTimeDays  Int @default(1)
+
+  /// When true a paid booking confirms immediately; otherwise the owner must
+  /// accept the request first.
+  instantBook Boolean @default(false)
+
+  // ── Handover ──────────────────────────────────────────────────────────────
+  fulfilment       FulfilmentMode[]
+  deliveryFeeMinor Int              @default(0)
+  /// Radius in kilometres within which the owner will hand-deliver.
+  deliveryRadiusKm Int?
+
+  city       String
+  state      String
+  country    String  @default("IN")
+  postalCode String?
+  latitude   Float?
+  longitude  Float?
+
+  /// Free-text terms the owner sets, shown before payment — never after.
+  rentalTerms String?
+
+  // ── Denormalised counters ────────────────────────────────────────────────
+  viewCount     Int @default(0)
+  wishlistCount Int @default(0)
+  rentalCount   Int @default(0)
+  ratingAvgBps  Int @default(0)
+  ratingCount   Int @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  bookings      RentalItem[]
+  blocks        AvailabilityBlock[]
+  wishlistedBy  WishlistItem[]
+  reviews       Review[]
+  collections   CollectionListing[]
+  conversations Conversation[]
+
+  @@index([status, moderation])
+  @@index([ownerId])
+  @@index([city])
+  @@index([baseRateMinor])
+  @@index([publishedAt])
+  @@index([status, publishedAt])
+  @@index([ratingAvgBps])
+}
+
+enum BlockReason {
+  OWNER_BLOCKED
+  MAINTENANCE
+  PERSONAL_USE
+  CLEANING
+}
+
+/// An owner-declared window during which the garment cannot be rented.
+/// Booked dates are NOT stored here — they are derived from live bookings, so
+/// there is exactly one source of truth for occupancy.
+model AvailabilityBlock {
+  id        String  @id @default(cuid())
+  listingId String
+  listing   Listing @relation(fields: [listingId], references: [id], onDelete: Cascade)
+
+  /// Inclusive start, exclusive end — the half-open convention used by every
+  /// date calculation in this codebase.
+  startDate DateTime    @db.Date
+  endDate   DateTime    @db.Date
+  reason    BlockReason @default(OWNER_BLOCKED)
+  note      String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([listingId, startDate, endDate])
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// COLLECTIONS — editorial curation
+// ═══════════════════════════════════════════════════════════════════════════
+
+model Collection {
+  id    String @id @default(cuid())
+  slug  String @unique
+  title String
+  /// The editorial standfirst that runs under the title.
+  standfirst String?
+  heroKey    String?
+  /// A collection may be curated by the house or by a member ("Ananya's
+  /// wedding edit"), which is what makes the wardrobe feel social.
+  curatorId   String?
+  isFeatured  Boolean   @default(false)
+  sortOrder   Int       @default(0)
+  publishedAt DateTime?
+
+  listings CollectionListing[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([isFeatured, sortOrder])
+}
+
+model CollectionListing {
+  collectionId String
+  listingId    String
+  collection   Collection @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  listing      Listing    @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  position     Int        @default(0)
+
+  @@id([collectionId, listingId])
+  @@index([listingId])
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// RENTALS
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// Order-level lifecycle: everything that is true of the basket as a whole.
+enum RentalStatus {
+  DRAFT
+  PAYMENT_PENDING
+  CONFIRMED
+  ACTIVE
+  COMPLETED
+  CANCELLED
+  REFUNDED
+  DISPUTED
+}
+
+/// Booking-level lifecycle for one garment from one owner. This is the state
+/// machine the marketplace actually runs on; permitted transitions live in
+/// `src/domain/rental/state-machine.ts` and are enforced server-side.
+enum BookingStatus {
+  REQUESTED
+  ACCEPTED
+  DECLINED
+  READY_FOR_PICKUP
+  SHIPPED
+  DELIVERED
+  ACTIVE
+  RETURN_REQUESTED
+  RETURNED
+  INSPECTION
+  COMPLETED
+  CANCELLED
+  DISPUTED
+}
+
+model Rental {
+  id String @id @default(cuid())
+  /// Human-quotable reference printed on receipts: ALM-7Q4K2P
+  reference String @unique
+  renterId  String
+  renter    User   @relation("RentalRenter", fields: [renterId], references: [id])
+
+  status RentalStatus @default(DRAFT)
+
+  currency String @default("INR")
+
+  // Server-computed totals, snapshotted at checkout. Client-submitted amounts
+  // are never persisted; these are recomputed from listing state inside the
+  // booking transaction.
+  rentalSubtotalMinor Int
+  deliveryFeeMinor    Int @default(0)
+  serviceFeeMinor     Int @default(0)
+  taxMinor            Int @default(0)
+  /// Refundable. Deliberately kept out of `totalMinor`'s revenue meaning and
+  /// always displayed as a separate line.
+  depositMinor        Int @default(0)
+  discountMinor       Int @default(0)
+  totalMinor          Int
+
+  deliveryAddressId String?
+  deliveryAddress   Address?       @relation("RentalDeliveryAddress", fields: [deliveryAddressId], references: [id])
+  fulfilment        FulfilmentMode @default(SHIPPING)
+  renterNote        String?
+
+  placedAt     DateTime?
+  cancelledAt  DateTime?
+  cancelReason String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  items         RentalItem[]
+  payments      Payment[]
+  refunds       Refund[]
+  deposit       SecurityDeposit?
+  disputes      Dispute[]
+  conversations Conversation[]
+  messages      Message[]
+
+  @@index([renterId, status])
+  @@index([status])
+  @@index([createdAt])
+}
+
+/// One garment, one date range, one owner. Carries its own state machine
+/// because a basket may span several wardrobes that ship and return
+/// independently.
+model RentalItem {
+  id        String  @id @default(cuid())
+  rentalId  String
+  rental    Rental  @relation(fields: [rentalId], references: [id], onDelete: Cascade)
+  listingId String
+  listing   Listing @relation(fields: [listingId], references: [id])
+  ownerId   String
+  owner     User    @relation("BookingOwner", fields: [ownerId], references: [id])
+
+  status BookingStatus @default(REQUESTED)
+
+  /// Half-open [startDate, endDate): the renter has the garment on startDate
+  /// and returns it on endDate. `days` is therefore endDate - startDate.
+  startDate DateTime @db.Date
+  endDate   DateTime @db.Date
+  days      Int
+  /// Turnaround reserved after `endDate`, copied from the listing at booking
+  /// time so that later policy changes cannot retroactively free a blocked day.
+  bufferDays Int @default(1)
+
+  // Price snapshot. A listing's price may change tomorrow; a booking's may not.
+  baseRateMinor     Int
+  baseDurationDays  Int
+  extraDayRateMinor Int
+  cleaningFeeMinor  Int @default(0)
+  lineSubtotalMinor Int
+  depositMinor      Int
+  /// Marketplace commission withheld from the owner, in basis points and cash.
+  commissionBps     Int
+  commissionMinor   Int
+  /// What the owner is owed once the rental completes cleanly.
+  ownerEarningsMinor Int
+
+  acceptedAt  DateTime?
+  declinedAt  DateTime?
+  shippedAt   DateTime?
+  deliveredAt DateTime?
+  returnedAt  DateTime?
+  completedAt DateTime?
+  cancelledAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  delivery     Delivery?
+  damageReport DamageReport?
+  reviews      Review[]
+  payoutItems  PayoutItem[]
+  transitions  BookingTransition[]
+
+  // The index that the availability query rides on. Occupancy is always
+  // resolved as: listingId = ? AND status IN (live) AND ranges overlap.
+  @@index([listingId, startDate, endDate])
+  @@index([listingId, status])
+  @@index([ownerId, status])
+  @@index([rentalId])
+  @@index([status])
+}
+
+/// Append-only audit of every booking state change. Disputes are decided on
+/// this table, so rows are never updated or deleted.
+model BookingTransition {
+  id           String         @id @default(cuid())
+  rentalItemId String
+  rentalItem   RentalItem     @relation(fields: [rentalItemId], references: [id], onDelete: Cascade)
+  fromStatus   BookingStatus?
+  toStatus     BookingStatus
+  /// Null when the platform itself moved the booking (expiry, settlement).
+  actorId      String?
+  reason       String?
+  createdAt    DateTime       @default(now())
+
+  @@index([rentalItemId, createdAt])
+}
+
+enum DeliveryStatus {
+  PENDING
+  READY
+  IN_TRANSIT
+  DELIVERED
+  RETURN_IN_TRANSIT
+  RETURNED
+  FAILED
+}
+
+model Delivery {
+  id           String     @id @default(cuid())
+  rentalItemId String     @unique
+  rentalItem   RentalItem @relation(fields: [rentalItemId], references: [id], onDelete: Cascade)
+
+  mode           FulfilmentMode
+  status         DeliveryStatus @default(PENDING)
+  carrier        String?
+  trackingNumber String?
+  /// Free-text instructions agreed between the two members.
+  handoverNote   String?
+  outboundAt     DateTime?
+  deliveredAt    DateTime?
+  returnAt       DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status])
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// MONEY
+// ═══════════════════════════════════════════════════════════════════════════
+
+enum PaymentStatus {
+  CREATED
+  AUTHORIZED
+  CAPTURED
+  FAILED
+  CANCELLED
+  REFUNDED
+  PARTIALLY_REFUNDED
+}
+
+enum PaymentProvider {
+  RAZORPAY
+  STRIPE
+  SANDBOX
+}
+
+model Payment {
+  id       String @id @default(cuid())
+  rentalId String
+  rental   Rental @relation(fields: [rentalId], references: [id], onDelete: Cascade)
+
+  provider PaymentProvider
+  status   PaymentStatus   @default(CREATED)
+
+  /// Provider's order/intent handle. Unique per provider so a replayed webhook
+  /// can never create a second payment row.
+  providerOrderId   String
+  providerPaymentId String?
+  /// Verified signature from the provider webhook, retained for audit.
+  providerSignature String?
+
+  currency      String @default("INR")
+  amountMinor   Int
+  capturedMinor Int    @default(0)
+  refundedMinor Int    @default(0)
+
+  failureCode    String?
+  failureMessage String?
+
+  authorizedAt DateTime?
+  capturedAt   DateTime?
+  failedAt     DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  refunds Refund[]
+
+  @@unique([provider, providerOrderId])
+  @@index([rentalId])
+  @@index([status])
+}
+
+enum RefundReason {
+  RENTER_CANCELLED
+  OWNER_DECLINED
+  OWNER_CANCELLED
+  ITEM_UNAVAILABLE
+  DEPOSIT_RELEASE
+  DISPUTE_RESOLUTION
+  GOODWILL
+}
+
+enum RefundStatus {
+  PENDING
+  PROCESSING
+  SUCCEEDED
+  FAILED
+}
+
+model Refund {
+  id        String  @id @default(cuid())
+  rentalId  String
+  rental    Rental  @relation(fields: [rentalId], references: [id], onDelete: Cascade)
+  paymentId String
+  payment   Payment @relation(fields: [paymentId], references: [id])
+
+  amountMinor      Int
+  reason           RefundReason
+  status           RefundStatus @default(PENDING)
+  providerRefundId String?
+  note             String?
+  processedAt      DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([rentalId])
+  @@index([status])
+}
+
+enum DepositStatus {
+  HELD
+  PARTIALLY_CAPTURED
+  CAPTURED
+  RELEASED
+}
+
+/// The refundable security deposit for a rental, tracked separately from the
+/// rental payment so that "what you actually paid" and "what you get back" are
+/// never conflated in the ledger or in the interface.
+model SecurityDeposit {
+  id       String @id @default(cuid())
+  rentalId String @unique
+  rental   Rental @relation(fields: [rentalId], references: [id], onDelete: Cascade)
+
+  amountMinor   Int
+  capturedMinor Int           @default(0)
+  status        DepositStatus @default(HELD)
+  releasedAt    DateTime?
+  captureReason String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status])
+}
+
+enum PayoutStatus {
+  SCHEDULED
+  PROCESSING
+  PAID
+  FAILED
+  ON_HOLD
+}
+
+model PayoutAccount {
+  id     String @id @default(cuid())
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  /// Only the last four digits are ever stored or displayed. Full banking
+  /// details live with the payment provider, never in this database.
+  beneficiaryName String
+  bankLast4       String
+  ifscCode        String?
+  upiHandle       String?
+  isVerified      Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Payout {
+  id      String @id @default(cuid())
+  ownerId String
+  owner   User   @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+
+  reference        String       @unique
+  amountMinor      Int
+  currency         String       @default("INR")
+  status           PayoutStatus @default(SCHEDULED)
+  providerPayoutId String?
+  scheduledFor     DateTime?
+  paidAt           DateTime?
+  failureMessage   String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  items PayoutItem[]
+
+  @@index([ownerId, status])
+  @@index([status])
+}
+
+/// Ties a payout to the exact bookings it settles. A booking can appear in at
+/// most one payout, which is what makes double-payment structurally impossible.
+model PayoutItem {
+  id           String     @id @default(cuid())
+  payoutId     String
+  payout       Payout     @relation(fields: [payoutId], references: [id], onDelete: Cascade)
+  rentalItemId String     @unique
+  rentalItem   RentalItem @relation(fields: [rentalItemId], references: [id])
+  amountMinor  Int
+
+  createdAt DateTime @default(now())
+
+  @@index([payoutId])
+}
+
+/// Commission and fee schedule. Rates are configuration, not constants in the
+/// codebase, so pricing can change without a deploy and historical bookings
+/// keep the rate they were priced under.
+model PlatformFee {
+  id String @id @default(cuid())
+  /// e.g. "standard", "designer", "launch-offer"
+  key  String @unique
+  name String
+
+  /// Withheld from the owner's earnings.
+  commissionBps Int
+  /// Added on top of the renter's subtotal.
+  serviceFeeBps Int
+  /// Applied to rental + fees. Never applied to the refundable deposit.
+  taxBps      Int @default(0)
+  minFeeMinor Int @default(0)
+
+  effectiveFrom DateTime  @default(now())
+  effectiveTo   DateTime?
+  isDefault     Boolean   @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([isDefault, effectiveFrom])
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// REPUTATION
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// Reviews run in both directions: a renter rates the garment and its owner,
+/// an owner rates the renter. Both are required for the marketplace to be safe
+/// for either side.
+enum ReviewDirection {
+  RENTER_ON_ITEM
+  OWNER_ON_RENTER
+}
+
+model Review {
+  id           String     @id @default(cuid())
+  rentalItemId String
+  rentalItem   RentalItem @relation(fields: [rentalItemId], references: [id], onDelete: Cascade)
+  listingId    String?
+  listing      Listing?   @relation(fields: [listingId], references: [id], onDelete: Cascade)
+
+  authorId  String
+  author    User   @relation("ReviewAuthor", fields: [authorId], references: [id], onDelete: Cascade)
+  subjectId String
+  subject   User   @relation("ReviewSubject", fields: [subjectId], references: [id], onDelete: Cascade)
+
+  direction ReviewDirection
+  /// Whole stars, 1–5. A check constraint enforces the range in the database.
+  rating    Int
+  /// Sub-scores, only meaningful for RENTER_ON_ITEM.
+  fitRating       Int?
+  conditionRating Int?
+  accuracyRating  Int?
+  body            String?
+
+  moderation  ModerationStatus @default(APPROVED)
+  publishedAt DateTime         @default(now())
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  /// One review per direction per booking.
+  @@unique([rentalItemId, direction])
+  @@index([listingId, moderation])
+  @@index([subjectId])
+  @@index([authorId])
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// WISHLIST
+// ═══════════════════════════════════════════════════════════════════════════
+
+model Wishlist {
+  id     String @id @default(cuid())
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  /// Opaque token that makes a wishlist shareable by link without exposing the
+  /// owning user's id.
+  shareToken String @unique
+
+  items WishlistItem[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model WishlistItem {
+  id         String   @id @default(cuid())
+  wishlistId String
+  wishlist   Wishlist @relation(fields: [wishlistId], references: [id], onDelete: Cascade)
+  listingId  String
+  listing    Listing  @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  note       String?
+
+  createdAt DateTime @default(now())
+
+  @@unique([wishlistId, listingId])
+  @@index([listingId])
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// MESSAGING
+// ═══════════════════════════════════════════════════════════════════════════
+
+model Conversation {
+  id String @id @default(cuid())
+  /// A thread is usually anchored to the garment being discussed, and gains a
+  /// rental once a booking exists.
+  listingId String?
+  listing   Listing? @relation(fields: [listingId], references: [id], onDelete: SetNull)
+  rentalId  String?
+  rental    Rental?  @relation(fields: [rentalId], references: [id], onDelete: SetNull)
+
+  subject       String?
+  lastMessageAt DateTime @default(now())
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  members  ConversationMember[]
+  messages Message[]
+
+  @@index([lastMessageAt])
+  @@index([listingId])
+}
+
+model ConversationMember {
+  id             String       @id @default(cuid())
+  conversationId String
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  userId         String
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  lastReadAt     DateTime?
+
+  createdAt DateTime @default(now())
+
+  @@unique([conversationId, userId])
+  @@index([userId])
+}
+
+enum MessageKind {
+  TEXT
+  SYSTEM
+}
+
+model Message {
+  id             String       @id @default(cuid())
+  conversationId String
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  /// Null for platform-generated system events.
+  senderId       String?
+  sender         User?        @relation(fields: [senderId], references: [id], onDelete: SetNull)
+
+  kind MessageKind @default(TEXT)
+  body String
+
+  /// System messages carry a machine-readable event so the interface can render
+  /// "Booking accepted" natively rather than parsing prose.
+  systemEvent String?
+  rentalId    String?
+  rental      Rental? @relation(fields: [rentalId], references: [id], onDelete: SetNull)
+
+  moderation ModerationStatus @default(APPROVED)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([conversationId, createdAt])
+  @@index([senderId])
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// NOTIFICATIONS
+// ═══════════════════════════════════════════════════════════════════════════
+
+enum NotificationKind {
+  RENTAL_REQUESTED
+  RENTAL_ACCEPTED
+  RENTAL_DECLINED
+  PAYMENT_SUCCEEDED
+  PAYMENT_FAILED
+  RENTAL_REMINDER
+  RETURN_REMINDER
+  LISTING_APPROVED
+  LISTING_REJECTED
+  MESSAGE_RECEIVED
+  PAYOUT_PROCESSED
+  REVIEW_RECEIVED
+  DISPUTE_OPENED
+}
+
+model Notification {
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  kind  NotificationKind
+  title String
+  body  String
+  /// In-app destination for the notification's primary action.
+  href  String?
+
+  readAt    DateTime?
+  emailedAt DateTime?
+
+  createdAt DateTime @default(now())
+
+  @@index([userId, readAt])
+  @@index([createdAt])
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// TRUST & SAFETY
+// ═══════════════════════════════════════════════════════════════════════════
+
+enum DamageSeverity {
+  MINOR
+  MODERATE
+  SEVERE
+  LOST
+}
+
+model DamageReport {
+  id           String     @id @default(cuid())
+  rentalItemId String     @unique
+  rentalItem   RentalItem @relation(fields: [rentalItemId], references: [id], onDelete: Cascade)
+
+  severity    DamageSeverity
+  description String
+  /// Storage keys of the evidence photographs.
+  evidenceKeys String[]
+  /// What the owner asks to be deducted from the deposit; the platform decides
+  /// the final figure.
+  claimedMinor  Int
+  approvedMinor Int?
+  resolvedAt    DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+enum DisputeStatus {
+  OPEN
+  UNDER_REVIEW
+  AWAITING_RESPONSE
+  RESOLVED
+  WITHDRAWN
+}
+
+enum DisputeOutcome {
+  RENTER_FAVOURED
+  OWNER_FAVOURED
+  SPLIT
+  NO_ACTION
+}
+
+model Dispute {
+  id         String @id @default(cuid())
+  rentalId   String
+  rental     Rental @relation(fields: [rentalId], references: [id], onDelete: Cascade)
+  openedById String
+  openedBy   User   @relation("DisputeOpener", fields: [openedById], references: [id])
+
+  status         DisputeStatus   @default(OPEN)
+  outcome        DisputeOutcome?
+  reason         String
+  detail         String?
+  resolutionNote String?
+  /// Amount moved as a result of the ruling, if any.
+  settlementMinor Int?
+  resolvedAt      DateTime?
+  resolvedBy      String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status])
+  @@index([rentalId])
+}
+
+enum ReportSubject {
+  LISTING
+  USER
+  MESSAGE
+  REVIEW
+}
+
+enum ReportStatus {
+  PENDING
+  REVIEWING
+  ACTIONED
+  DISMISSED
+}
+
+model Report {
+  id         String @id @default(cuid())
+  reporterId String
+  reporter   User   @relation("ReportReporter", fields: [reporterId], references: [id], onDelete: Cascade)
+
+  subject ReportSubject
+  /// Polymorphic target. Kept as an opaque id with `subject` as the
+  /// discriminator rather than six nullable foreign keys.
+  subjectId  String
+  reason     String
+  detail     String?
+  status     ReportStatus @default(PENDING)
+  reviewedBy String?
+  reviewedAt DateTime?
+  actionNote String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status, createdAt])
+  @@index([subject, subjectId])
+}
+
+/// Every privileged action a moderator or administrator takes.
+model AuditLog {
+  id      String  @id @default(cuid())
+  actorId String?
+  actor   User?   @relation(fields: [actorId], references: [id], onDelete: SetNull)
+
+  action     String
+  entityType String
+  entityId   String
+  metadata   Json?
+  ipAddress  String?
+
+  createdAt DateTime @default(now())
+
+  @@index([entityType, entityId])
+  @@index([actorId, createdAt])
+}
