@@ -113,7 +113,13 @@ async function createBundledAdapter(): Promise<PrismaAdapter> {
 
   let pglite: Awaited<ReturnType<typeof PGlite.create>>;
   try {
-    pglite = inMemory ? await PGlite.create({ loadDataDir }) : await PGlite.create({ dataDir });
+    // `dataDir: "memory://"` is stated rather than implied. Left undefined,
+    // PGlite came up with no schema at all on Vercel even though the dump was
+    // handed to it — it takes a different path when no target is named, and
+    // ignores the archive instead of reporting that it did.
+    pglite = inMemory
+      ? await PGlite.create({ dataDir: "memory://", loadDataDir })
+      : await PGlite.create({ dataDir });
   } catch (cause) {
     // The engine aborts rather than throwing a legible error, so this is the
     // one place that can turn it into an instruction.
