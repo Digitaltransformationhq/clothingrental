@@ -54,33 +54,35 @@ async function createBundledAdapter(): Promise<PrismaAdapter> {
   // During a production build the exception is a sibling build worker, which
   // only ever reads. Those get a private copy so the build can fan out without
   // several processes opening one single-writer database.
+  /**
+   * On a serverless host the database lives in memory, not on disk.
+   *
+   * Opening a data directory under /tmp fails there — PGlite aborts with
+   * "failed to initialize properly", and a copied template fares no better.
+   * A lambda has no persistent disk worth writing to in any case: the instance
+   * is discarded along with anything it wrote, so the directory bought nothing
+   * and cost the one thing that has to work.
+   *
+   * In memory there is no filesystem to get wrong. The schema is applied on
+   * first connection, which the bundled path already does, and the cost is that
+   * each instance starts empty — which was already true of scratch space.
+   */
+  const inMemory = Boolean(process.env.VERCEL);
   let dataDir = env.PGLITE_DATA_DIR;
 
-  // A demonstration instance ships a pre-seeded template, because seeding takes
-  // longer than a serverless function is allowed to live. The bundle is
-  // read-only, so the template is copied into scratch space and opened there.
-  // Every cold start gets the same catalogue and loses whatever the last one
-  // was doing. Reaching this function at all means no DATABASE_URL was set, so
-  // there is no configured database to be careful of.
-  {
-    const { existsSync, cpSync } = await import("node:fs");
-    const template = ".pglite-demo";
-    if (!existsSync(dataDir) && existsSync(template)) {
-      cpSync(template, dataDir, { recursive: true });
+  if (!inMemory) {
+    try {
+      await acquireBundledLock(dataDir);
+    } catch (error) {
+      const { BuildWorkerContention, cloneForBuildWorker } = await import("./bundled-lock");
+      if (!(error instanceof BuildWorkerContention)) throw error;
+      dataDir = await cloneForBuildWorker(env.PGLITE_DATA_DIR);
     }
-  }
-
-  try {
-    await acquireBundledLock(dataDir);
-  } catch (error) {
-    const { BuildWorkerContention, cloneForBuildWorker } = await import("./bundled-lock");
-    if (!(error instanceof BuildWorkerContention)) throw error;
-    dataDir = await cloneForBuildWorker(env.PGLITE_DATA_DIR);
   }
 
   let pglite: Awaited<ReturnType<typeof PGlite.create>>;
   try {
-    pglite = await PGlite.create({ dataDir });
+    pglite = inMemory ? await PGlite.create() : await PGlite.create({ dataDir });
   } catch (cause) {
     // The engine aborts rather than throwing a legible error, so this is the
     // one place that can turn it into an instruction.
