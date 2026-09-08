@@ -49,6 +49,19 @@ const schema = z.object({
   RAZORPAY_KEY_ID: optionalString,
   RAZORPAY_KEY_SECRET: optionalString,
   RAZORPAY_WEBHOOK_SECRET: optionalString,
+  /**
+   * Deliberate escape hatch for a demonstration deployment.
+   *
+   * A sandbox provider in production means money is never actually taken, so
+   * the check below refuses it — that default stands. But a portfolio or demo
+   * instance has no merchant account and no reason to have one, and without
+   * this the only way to see the site running is to weaken the check itself.
+   *
+   * Opt-in, never inferred: it has to be typed into the environment on purpose,
+   * and it is the one thing here whose presence is worth grepping for before a
+   * real launch.
+   */
+  ALLOW_SANDBOX_PAYMENTS: z.preprocess(emptyToUndefined, z.stringbool().default(false)),
   STRIPE_SECRET_KEY: optionalString,
   STRIPE_WEBHOOK_SECRET: optionalString,
 
@@ -126,8 +139,11 @@ function parseEnv(): Env {
           "The bundled in-process database is for development and CI only.",
       );
     }
-    if (env.PAYMENT_PROVIDER === "sandbox") {
-      problems.push("PAYMENT_PROVIDER must not be 'sandbox' in production.");
+    if (env.PAYMENT_PROVIDER === "sandbox" && !env.ALLOW_SANDBOX_PAYMENTS) {
+      problems.push(
+        "PAYMENT_PROVIDER must not be 'sandbox' in production. " +
+          "Set ALLOW_SANDBOX_PAYMENTS=true to run a demonstration instance that takes no money.",
+      );
     }
   }
 
