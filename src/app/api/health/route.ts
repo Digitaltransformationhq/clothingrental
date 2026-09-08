@@ -25,10 +25,34 @@ export async function GET() {
     const db = await getDb();
     await db.$queryRaw`SELECT 1`;
 
+    // On a demonstration instance, whether the seeded archive was found. An
+    // empty catalogue and a missing archive look identical from outside, and
+    // the difference decides whether the problem is the dump or the pages.
+    let archive: Record<string, unknown> | undefined;
+    if (usesBundledDatabase) {
+      const { existsSync, readdirSync } = await import("node:fs");
+      const cwd = process.cwd();
+      archive = {
+        cwd,
+        found: existsSync("demo-database.tar.gz"),
+        listings: Number(
+          (
+            (await db.$queryRaw`SELECT count(*)::int AS count FROM "Listing"`) as Array<{
+              count: number;
+            }>
+          )[0]?.count ?? 0,
+        ),
+        rootEntries: readdirSync(cwd)
+          .filter((f) => !f.startsWith("."))
+          .slice(0, 25),
+      };
+    }
+
     return NextResponse.json(
       {
         status: "ok",
         database: usesBundledDatabase ? "bundled" : "postgres",
+        ...(archive ? { archive } : {}),
         payments: env.PAYMENT_PROVIDER,
         search: env.SEARCH_DRIVER,
         storage: env.STORAGE_DRIVER,
