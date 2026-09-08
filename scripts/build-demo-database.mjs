@@ -25,6 +25,7 @@ import { spawnSync } from "node:child_process";
  */
 
 const TEMPLATE = ".pglite-demo";
+const DUMP = "demo-database.tar.gz";
 
 if (process.env.DATABASE_URL?.trim()) {
   console.log("\n  DATABASE_URL is set — no demonstration database needed.\n");
@@ -34,6 +35,7 @@ if (process.env.DATABASE_URL?.trim()) {
 console.log(`\n  Building a seeded demonstration database in ${TEMPLATE}…\n`);
 
 if (existsSync(TEMPLATE)) rmSync(TEMPLATE, { recursive: true, force: true });
+if (existsSync(DUMP)) rmSync(DUMP, { force: true });
 
 const result = spawnSync("npx", ["tsx", "--conditions=react-server", "prisma/seed.ts"], {
   stdio: "inherit",
@@ -51,4 +53,25 @@ if (result.status !== 0) {
   process.exit(result.status ?? 1);
 }
 
-console.log(`\n  Seeded ${TEMPLATE}. It is copied into scratch space on each cold start.\n`);
+/**
+ * The seeded directory is then dumped to a compressed archive.
+ *
+ * A serverless instance runs the database in memory — opening a data directory
+ * under /tmp fails there — so the directory itself is no use at runtime. PGlite
+ * can load a dump straight into memory instead, which takes a moment rather
+ * than the fifteen seconds seeding takes, and the archive is a few megabytes
+ * against the directory's forty-three.
+ */
+const { PGlite } = await import("@electric-sql/pglite");
+const { writeFile } = await import("node:fs/promises");
+
+const db = await PGlite.create({ dataDir: TEMPLATE });
+const dump = await db.dumpDataDir("gzip");
+await writeFile(DUMP, Buffer.from(await dump.arrayBuffer()));
+await db.close();
+
+rmSync(TEMPLATE, { recursive: true, force: true });
+
+const { statSync } = await import("node:fs");
+console.log(`\n  Wrote ${DUMP} (${(statSync(DUMP).size / 1024 / 1024).toFixed(1)}MB).`);
+console.log("  It is loaded into memory on each cold start.\n");

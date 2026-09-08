@@ -45,6 +45,7 @@ tests/.sessions/
 /.pglite
 # built at deploy time, 43MB, never committed
 /.pglite-demo
+/demo-database.tar.gz
 /.pglite-*
 
 # member uploads are written at runtime, not shipped with the repo

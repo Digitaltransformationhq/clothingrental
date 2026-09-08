@@ -80,9 +80,27 @@ async function createBundledAdapter(): Promise<PrismaAdapter> {
     }
   }
 
+  /**
+   * In memory, the catalogue comes from an archive built at deploy time.
+   *
+   * Seeding takes about fifteen seconds, which is longer than a serverless
+   * function is allowed to live, so it cannot happen here. The build seeds once
+   * and dumps the result; this loads it, which takes a moment. Without the
+   * archive the schema is still applied below and the instance simply starts
+   * empty, which is what a real deployment wants anyway.
+   */
+  let loadDataDir: Blob | undefined;
+  if (inMemory) {
+    const { existsSync, readFileSync } = await import("node:fs");
+    const archive = "demo-database.tar.gz";
+    if (existsSync(archive)) {
+      loadDataDir = new Blob([readFileSync(archive)]);
+    }
+  }
+
   let pglite: Awaited<ReturnType<typeof PGlite.create>>;
   try {
-    pglite = inMemory ? await PGlite.create() : await PGlite.create({ dataDir });
+    pglite = inMemory ? await PGlite.create({ loadDataDir }) : await PGlite.create({ dataDir });
   } catch (cause) {
     // The engine aborts rather than throwing a legible error, so this is the
     // one place that can turn it into an instruction.
