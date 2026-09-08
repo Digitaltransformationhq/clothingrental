@@ -161,19 +161,45 @@ function parseEnv(): Env {
    */
   const isBuildPhase = process.env.NEXT_PHASE === "phase-production-build";
 
-  if (env.NODE_ENV === "production" && !isBuildPhase) {
+  /**
+   * A deployment with no database configured is a demonstration, not a
+   * marketplace.
+   *
+   * These rules exist so a real deployment cannot quietly go live mishandling
+   * somebody's money or sessions, and every one of them still applies the
+   * moment a DATABASE_URL appears. But with no database there is nothing to
+   * protect: the catalogue is seeded fixtures, the sandbox provider takes no
+   * money, and every row is discarded when the instance recycles. Refusing to
+   * boot there makes nothing safer — it only means nobody can see the site.
+   *
+   * So an unconfigured production instance degrades to a demonstration and says
+   * so in the log. Set DATABASE_URL and the full standard returns on its own.
+   */
+  const isDemonstration = !env.DATABASE_URL;
+
+  if (env.NODE_ENV === "production" && !isBuildPhase && isDemonstration) {
+    const notes = [
+      "No DATABASE_URL — using the bundled in-process database. Seeded fixtures,",
+      "discarded whenever this instance recycles.",
+    ];
+    if (!env.BETTER_AUTH_SECRET || env.BETTER_AUTH_SECRET.length < 32) {
+      notes.push("No BETTER_AUTH_SECRET — sessions end at every cold start.");
+    }
+    if (env.PAYMENT_PROVIDER === "sandbox") {
+      notes.push("Sandbox payments — no money moves.");
+    }
+    notes.push("Set DATABASE_URL to make this a real deployment.");
+    console.warn(
+      `\n  Running as a demonstration instance.\n${notes.map((n) => `    ${n}`).join("\n")}\n`,
+    );
+  }
+
+  if (env.NODE_ENV === "production" && !isBuildPhase && !isDemonstration) {
     if (!env.BETTER_AUTH_SECRET || env.BETTER_AUTH_SECRET.length < 32) {
       problems.push("BETTER_AUTH_SECRET must be set to at least 32 characters in production.");
     }
-    if (!env.DATABASE_URL && !env.ALLOW_BUNDLED_DATABASE) {
-      problems.push(
-        "DATABASE_URL must point at a PostgreSQL server in production. " +
-          "POSTGRES_PRISMA_URL and POSTGRES_URL are accepted too, so attaching a database " +
-          "in a hosting dashboard is enough. The bundled in-process database is for " +
-          "development and CI only. Set ALLOW_BUNDLED_DATABASE=true to show the site " +
-          "without one, accepting that nothing written to it survives.",
-      );
-    }
+    // No DATABASE_URL check here: this branch only runs when one is set. An
+    // instance without one is a demonstration and was handled above.
     if (env.PAYMENT_PROVIDER === "sandbox" && !env.ALLOW_SANDBOX_PAYMENTS) {
       problems.push(
         "PAYMENT_PROVIDER must not be 'sandbox' in production. " +

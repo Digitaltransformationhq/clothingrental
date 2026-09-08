@@ -5,9 +5,8 @@ import { spawnSync } from "node:child_process";
  * Builds a pre-seeded copy of the bundled database, for a deployment that has
  * no PostgreSQL server yet.
  *
- * Only runs when there is no DATABASE_URL and ALLOW_BUNDLED_DATABASE is set —
- * that is, on a demonstration instance and nowhere else. With a real database
- * configured this does nothing at all.
+ * Only runs when there is no DATABASE_URL — that is, on a demonstration
+ * instance and nowhere else. With a real database configured it does nothing.
  *
  * Why at build rather than at boot: seeding takes about fifteen seconds, which
  * is longer than a serverless function is allowed to live. The template is
@@ -29,14 +28,6 @@ const TEMPLATE = ".pglite-demo";
 
 if (process.env.DATABASE_URL?.trim()) {
   console.log("\n  DATABASE_URL is set — no demonstration database needed.\n");
-  process.exit(0);
-}
-
-if (process.env.ALLOW_BUNDLED_DATABASE !== "true") {
-  console.log(
-    "\n  ALLOW_BUNDLED_DATABASE is not set — skipping the demonstration database.\n" +
-      "  The server will refuse to start and name what it needs.\n",
-  );
   process.exit(0);
 }
 

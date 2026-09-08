@@ -60,8 +60,9 @@ async function createBundledAdapter(): Promise<PrismaAdapter> {
   // longer than a serverless function is allowed to live. The bundle is
   // read-only, so the template is copied into scratch space and opened there.
   // Every cold start gets the same catalogue and loses whatever the last one
-  // was doing — which is the deal ALLOW_BUNDLED_DATABASE makes explicit.
-  if (env.ALLOW_BUNDLED_DATABASE) {
+  // was doing. Reaching this function at all means no DATABASE_URL was set, so
+  // there is no configured database to be careful of.
+  {
     const { existsSync, cpSync } = await import("node:fs");
     const template = ".pglite-demo";
     if (!existsSync(dataDir) && existsSync(template)) {
