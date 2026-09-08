@@ -38,8 +38,26 @@ export async function GET() {
     );
   } catch (error) {
     console.error("[almirah] health check failed:", error);
+
+    // On a demonstration instance the reason is included. "Unreachable" with no
+    // cause is unactionable when the logs are somewhere you cannot read, and
+    // there is nothing here worth withholding: no configured database, no
+    // credentials, no topology. A configured deployment still says nothing.
     return NextResponse.json(
-      { status: "degraded", database: "unreachable" },
+      {
+        status: "degraded",
+        database: "unreachable",
+        ...(usesBundledDatabase
+          ? {
+              reason: error instanceof Error ? error.message : String(error),
+              cause:
+                error instanceof Error && error.cause instanceof Error
+                  ? error.cause.message
+                  : undefined,
+              dataDir: env.PGLITE_DATA_DIR,
+            }
+          : {}),
+      },
       { status: 503, headers: { "Cache-Control": "no-store" } },
     );
   }
