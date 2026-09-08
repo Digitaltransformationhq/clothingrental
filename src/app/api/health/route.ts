@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { env, usesBundledDatabase } from "@/env";
-import { getDb } from "@/server/db/client";
+import { bundledLoadReport, getDb } from "@/server/db/client";
 
 /**
  * Health check.
@@ -47,6 +47,7 @@ export async function GET() {
             }>
           )[0]?.count ?? 0,
         ),
+        load: bundledLoadReport,
         rootEntries: readdirSync(cwd)
           .filter((f) => !f.startsWith("."))
           .slice(0, 25),

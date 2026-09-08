@@ -38,6 +38,13 @@ async function createServerAdapter(databaseUrl: string): Promise<PrismaAdapter> 
   }) as PrismaAdapter;
 }
 
+/**
+ * What the demonstration archive produced, for the health endpoint to report.
+ * Module-level because the only place that can observe it is inside the adapter
+ * factory, and the only place that needs it is a route.
+ */
+export let bundledLoadReport: Record<string, unknown> | undefined;
+
 async function createBundledAdapter(): Promise<PrismaAdapter> {
   const [{ PGlite }, { PrismaPGlite }, { applyPendingMigrations }, { acquireBundledLock }] =
     await Promise.all([
@@ -119,6 +126,32 @@ async function createBundledAdapter(): Promise<PrismaAdapter> {
         `To start again: delete the "${env.PGLITE_DATA_DIR}" directory and run \`npm run db:seed\`.`,
       { cause },
     );
+  }
+
+  // What the archive actually produced, read before anything else touches the
+  // database. A dump that loaded and was then emptied looks identical from the
+  // outside to one that never loaded, and the two have opposite fixes.
+  if (inMemory) {
+    try {
+      const rows = (await pglite.query(
+        `SELECT to_regclass('public."Listing"') IS NOT NULL AS has_schema`,
+      )) as { rows: Array<{ has_schema: boolean }> };
+      bundledLoadReport = {
+        archiveOffered: Boolean(loadDataDir),
+        schemaAfterLoad: rows.rows[0]?.has_schema ?? false,
+      };
+      if (bundledLoadReport.schemaAfterLoad) {
+        const counted = (await pglite.query(`SELECT count(*)::int AS n FROM public."Listing"`)) as {
+          rows: Array<{ n: number }>;
+        };
+        bundledLoadReport.listingsAfterLoad = counted.rows[0]?.n ?? 0;
+      }
+    } catch (error) {
+      bundledLoadReport = {
+        archiveOffered: Boolean(loadDataDir),
+        probeError: error instanceof Error ? error.message : String(error),
+      };
+    }
   }
 
   // The bundled database has no external migration tool driving it, so it
