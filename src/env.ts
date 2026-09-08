@@ -138,10 +138,32 @@ function parseEnv(): Env {
     );
   }
 
+  const databaseUrl =
+    parsed.data.DATABASE_URL ?? parsed.data.POSTGRES_PRISMA_URL ?? parsed.data.POSTGRES_URL;
+
+  /**
+   * A demonstration instance signs sessions with a fixed secret.
+   *
+   * better-auth refuses to run on its built-in default, so with no secret set
+   * every page that reads the session — which is every page, through the root
+   * layout — threw, while routes that never touch auth carried on answering.
+   * That is a confusing shape of failure: the health check said the database
+   * was fine and the site returned 500 anyway.
+   *
+   * This is safe only because it is unreachable unless there is no database:
+   * the accounts it protects are seeded fixtures in a database discarded when
+   * the instance recycles, so a session forged against this secret grants
+   * access to nothing that outlives it. The moment a DATABASE_URL is set, a
+   * real secret is required again and this value is never used.
+   */
+  const betterAuthSecret =
+    parsed.data.BETTER_AUTH_SECRET ??
+    (databaseUrl ? undefined : "almirah-demonstration-instance-secret-not-for-real-deployments");
+
   const env = {
     ...parsed.data,
-    DATABASE_URL:
-      parsed.data.DATABASE_URL ?? parsed.data.POSTGRES_PRISMA_URL ?? parsed.data.POSTGRES_URL,
+    DATABASE_URL: databaseUrl,
+    BETTER_AUTH_SECRET: betterAuthSecret,
   };
 
   // Cross-field rules. Each of these is a misconfiguration that would only
