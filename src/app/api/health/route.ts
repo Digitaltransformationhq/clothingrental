@@ -30,11 +30,16 @@ export async function GET() {
     // the difference decides whether the problem is the dump or the pages.
     let archive: Record<string, unknown> | undefined;
     if (usesBundledDatabase) {
-      const { existsSync, readdirSync } = await import("node:fs");
+      const { existsSync, readdirSync, statSync } = await import("node:fs");
       const cwd = process.cwd();
+      const found = existsSync("demo-database.tar.gz");
       archive = {
         cwd,
-        found: existsSync("demo-database.tar.gz"),
+        found,
+        // Size separates the two ways this fails: an archive of a few megabytes
+        // that yields no rows is a loading problem, and a tiny one is a build
+        // that dumped before it seeded.
+        bytes: found ? statSync("demo-database.tar.gz").size : 0,
         listings: Number(
           (
             (await db.$queryRaw`SELECT count(*)::int AS count FROM "Listing"`) as Array<{
