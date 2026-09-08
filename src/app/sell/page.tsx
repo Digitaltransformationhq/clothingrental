@@ -237,8 +237,12 @@ export default async function SellPage() {
                   "If a piece is not returned",
                   "The deposit is released to you in full and we pursue the renter directly. Their account is suspended pending resolution.",
                 ],
-              ].map(([term, detail]) => (
+              ].map(([term, detail], index) => (
                 <div key={term} className="border-rule-inverse border-t pt-5">
+                  <Ornament
+                    name={ORNAMENTS[index % ORNAMENTS.length]}
+                    className="mb-3 h-[0.85rem] w-[0.85rem] text-[color:color-mix(in_oklab,var(--color-ink-inverse)_45%,transparent)]"
+                  />
                   <dt className="text-body font-medium">{term}</dt>
                   <dd className="text-small mt-2 leading-relaxed text-[color:color-mix(in_oklab,var(--color-ink-inverse)_72%,transparent)]">
                     {detail}

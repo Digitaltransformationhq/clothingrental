@@ -3,6 +3,7 @@ import Image from "next/image";
 import Link from "next/link";
 
 import { ButtonLink } from "@/components/ui/button";
+import { ORNAMENTS, Ornament } from "@/components/ui/ornament";
 import { Eyebrow, SectionHead } from "@/components/ui/primitives";
 import { DEFAULT_CANCELLATION_POLICY, DEFAULT_FEE_SCHEDULE } from "@/domain/rental/pricing";
 import { IMAGE_SIZES, mediaUrl } from "@/lib/media";
@@ -74,8 +75,17 @@ export default function HowItWorksPage() {
               },
             ].map((step, index) => (
               <li key={step.title} className="grid gap-4 sm:grid-cols-[4rem_1fr] sm:gap-8">
-                <span className="numeric font-display text-ink-3 text-[2.25rem] leading-none">
-                  0{index + 1}
+                {/* Marked the way every other numbered sequence on the site is,
+                    so the four steps here and the four on the homepage read as
+                    the same device rather than two that happen to be numbered. */}
+                <span className="flex items-baseline gap-2 sm:block">
+                  <Ornament
+                    name={ORNAMENTS[index % ORNAMENTS.length]}
+                    className="text-ink-3 mb-2 hidden h-[0.9rem] w-[0.9rem] sm:block"
+                  />
+                  <span className="numeric font-display text-ink-3 text-[2.25rem] leading-none">
+                    0{index + 1}
+                  </span>
                 </span>
                 <div>
                   <h3 className="title-2">{step.title}</h3>
@@ -165,8 +175,12 @@ export default function HowItWorksPage() {
                 "If it doesn't fit",
                 "Tell the owner within 24 hours of it arriving. Measurements are on every listing precisely so this does not happen, but where a piece is genuinely not as described, the rental is refunded.",
               ],
-            ].map(([term, detail]) => (
+            ].map(([term, detail], index) => (
               <div key={term} className="border-rule border-t pt-5">
+                <Ornament
+                  name={ORNAMENTS[index % ORNAMENTS.length]}
+                  className="text-ink-3 mb-3 h-[0.85rem] w-[0.85rem]"
+                />
                 <dt className="text-body text-ink font-medium">{term}</dt>
                 <dd className="text-small text-ink-2 mt-2 leading-relaxed">{detail}</dd>
               </div>
