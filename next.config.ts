@@ -49,6 +49,13 @@ const securityHeaders = [
 ];
 
 const nextConfig: NextConfig = {
+  // The seeded demonstration database is opened at runtime, not imported, so
+  // nothing traces a dependency on it and it would be left out of the bundle.
+  // Harmless when absent — a real deployment never builds one.
+  outputFileTracingIncludes: {
+    "/**": [".pglite-demo/**"],
+  },
+
   reactStrictMode: true,
 
   // Native modules and WebAssembly engines must not be traced into the bundle.

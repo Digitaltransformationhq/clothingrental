@@ -55,6 +55,20 @@ async function createBundledAdapter(): Promise<PrismaAdapter> {
   // only ever reads. Those get a private copy so the build can fan out without
   // several processes opening one single-writer database.
   let dataDir = env.PGLITE_DATA_DIR;
+
+  // A demonstration instance ships a pre-seeded template, because seeding takes
+  // longer than a serverless function is allowed to live. The bundle is
+  // read-only, so the template is copied into scratch space and opened there.
+  // Every cold start gets the same catalogue and loses whatever the last one
+  // was doing — which is the deal ALLOW_BUNDLED_DATABASE makes explicit.
+  if (env.ALLOW_BUNDLED_DATABASE) {
+    const { existsSync, cpSync } = await import("node:fs");
+    const template = ".pglite-demo";
+    if (!existsSync(dataDir) && existsSync(template)) {
+      cpSync(template, dataDir, { recursive: true });
+    }
+  }
+
   try {
     await acquireBundledLock(dataDir);
   } catch (error) {

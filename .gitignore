@@ -43,6 +43,9 @@ tests/.sessions/
 
 # bundled database — 59MB of real rows, including credential hashes
 /.pglite
+# built at deploy time, 43MB, never committed
+/.pglite-demo
+/.pglite-*
 
 # member uploads are written at runtime, not shipped with the repo
 /public/uploads

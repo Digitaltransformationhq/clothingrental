@@ -40,7 +40,25 @@ const schema = z.object({
   DATABASE_URL: optionalString,
   POSTGRES_PRISMA_URL: optionalString,
   POSTGRES_URL: optionalString,
-  PGLITE_DATA_DIR: z.preprocess(emptyToUndefined, z.string().default(".pglite")),
+  PGLITE_DATA_DIR: z.preprocess(
+    emptyToUndefined,
+    // On a serverless host the bundle is read-only; /tmp is the one writable
+    // path, and it is per-instance and wiped between cold starts.
+    z.string().default(process.env.VERCEL ? "/tmp/almirah-pglite" : ".pglite"),
+  ),
+
+  /**
+   * Runs production on the bundled in-process database.
+   *
+   * For showing the site before a real database exists, and nothing else. The
+   * data directory lives in the host's scratch space, so it is empty on every
+   * cold start and never shared between instances: anything written — an
+   * account, a listing, a booking — is gone the moment that instance is
+   * recycled.
+   *
+   * Opt-in, and it should be removed the day a real DATABASE_URL is set.
+   */
+  ALLOW_BUNDLED_DATABASE: z.preprocess(emptyToUndefined, z.stringbool().default(false)),
 
   // ── Application ───────────────────────────────────────────────────────────
   NEXT_PUBLIC_APP_URL: z.preprocess(emptyToUndefined, z.url().default("http://localhost:3000")),
@@ -147,12 +165,13 @@ function parseEnv(): Env {
     if (!env.BETTER_AUTH_SECRET || env.BETTER_AUTH_SECRET.length < 32) {
       problems.push("BETTER_AUTH_SECRET must be set to at least 32 characters in production.");
     }
-    if (!env.DATABASE_URL) {
+    if (!env.DATABASE_URL && !env.ALLOW_BUNDLED_DATABASE) {
       problems.push(
         "DATABASE_URL must point at a PostgreSQL server in production. " +
           "POSTGRES_PRISMA_URL and POSTGRES_URL are accepted too, so attaching a database " +
           "in a hosting dashboard is enough. The bundled in-process database is for " +
-          "development and CI only.",
+          "development and CI only. Set ALLOW_BUNDLED_DATABASE=true to show the site " +
+          "without one, accepting that nothing written to it survives.",
       );
     }
     if (env.PAYMENT_PROVIDER === "sandbox" && !env.ALLOW_SANDBOX_PAYMENTS) {
