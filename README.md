@@ -250,16 +250,17 @@ Configure these in the project's environment variables before the first deploy. 
 validates them at boot and refuses to start if any are wrong, so a missing one is a 500 on every
 route rather than a subtle failure later:
 
-| Variable                      | Notes                                                                          |
-| ----------------------------- | ------------------------------------------------------------------------------ |
-| `DATABASE_URL`                | A real PostgreSQL server. The bundled database is for development and CI only. |
-| `BETTER_AUTH_SECRET`          | 32+ characters. `openssl rand -base64 32`.                                     |
-| `NEXT_PUBLIC_APP_URL`         | The canonical origin, e.g. `https://example.vercel.app`.                       |
-| `BETTER_AUTH_URL`             | The same origin.                                                               |
-| `PAYMENT_PROVIDER`            | `razorpay` or `stripe`, with that provider's keys. `sandbox` is refused.       |
-| `STORAGE_DRIVER`              | `s3`, with the bucket credentials. The filesystem is read-only on Vercel.      |
-| `NEXT_PUBLIC_UPLOAD_BASE_URL` | The bucket's public URL. Without it, uploaded images 404.                      |
-| `EMAIL_DRIVER`                | `resend`, with its key.                                                        |
+| Variable                      | Notes                                                                                                                  |
+| ----------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| `DATABASE_URL`                | A real PostgreSQL server. The bundled database is for development and CI only.                                         |
+| `BETTER_AUTH_SECRET`          | 32+ characters. `openssl rand -base64 32`.                                                                             |
+| `NEXT_PUBLIC_APP_URL`         | The canonical origin, e.g. `https://example.vercel.app`.                                                               |
+| `BETTER_AUTH_URL`             | The same origin.                                                                                                       |
+| `PAYMENT_PROVIDER`            | `razorpay` or `stripe`, with that provider's keys.                                                                     |
+| `ALLOW_SANDBOX_PAYMENTS`      | `true` only for a demonstration instance that takes no money. Without it, a sandbox provider is refused in production. |
+| `STORAGE_DRIVER`              | `s3`, with the bucket credentials. The filesystem is read-only on Vercel.                                              |
+| `NEXT_PUBLIC_UPLOAD_BASE_URL` | The bucket's public URL. Without it, uploaded images 404.                                                              |
+| `EMAIL_DRIVER`                | `resend`, with its key.                                                                                                |
 
 Then create an administrator against the production database, with a password of your own:
 
