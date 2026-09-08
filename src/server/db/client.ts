@@ -89,12 +89,18 @@ async function createBundledAdapter(): Promise<PrismaAdapter> {
    * archive the schema is still applied below and the instance simply starts
    * empty, which is what a real deployment wants anyway.
    */
-  let loadDataDir: Blob | undefined;
+  let loadDataDir: File | undefined;
   if (inMemory) {
     const { existsSync, readFileSync } = await import("node:fs");
     const archive = "demo-database.tar.gz";
     if (existsSync(archive)) {
-      loadDataDir = new Blob([readFileSync(archive)]);
+      // A File, not a Blob: PGlite decides whether the dump is gzipped from the
+      // name, and a Blob has none. Handed one it cannot identify, it starts an
+      // empty database instead of failing — which is why the archive shipped
+      // and the catalogue was still empty.
+      loadDataDir = new File([readFileSync(archive)], archive, {
+        type: "application/gzip",
+      });
     }
   }
 
