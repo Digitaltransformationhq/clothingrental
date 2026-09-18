@@ -21,6 +21,7 @@
     "db:studio": "prisma studio",
     "db:reset": "tsx --conditions=react-server scripts/db-reset.ts",
     "db:seed": "tsx --conditions=react-server prisma/seed.ts",
+    "db:provision": "tsx --conditions=react-server scripts/provision.ts",
     "admin:create": "tsx --conditions=react-server scripts/create-admin.ts",
     "db:remove-seed-listings": "tsx --conditions=react-server scripts/remove-seed-listings.ts",
     "db:remove-seed-users": "tsx --conditions=react-server scripts/remove-seed-users.ts",
