@@ -13,7 +13,12 @@ import {
   type WizardStepId,
 } from "@/domain/listing/draft";
 import { formatMoney, money, subtract } from "@/domain/money";
-import { quoteRental, suggestedBaseRate, suggestedDeposit } from "@/domain/rental/pricing";
+import {
+  quoteListingFee,
+  quoteRental,
+  suggestedBaseRate,
+  suggestedDeposit,
+} from "@/domain/rental/pricing";
 import { Button } from "@/components/ui/button";
 import { mediaUrl } from "@/lib/media";
 import { createListing, updateListing } from "@/server/actions/listings";
@@ -649,8 +654,10 @@ function StepBody({
  * Pricing.
  *
  * Shows the owner what *they* get, not what the renter pays. Marketplaces
- * routinely show only the latter, which is how owners end up surprised by
- * commission after their first rental.
+ * routinely show only the latter, which is how owners end up surprised by a
+ * commission after their first rental. Here there is none to be surprised by:
+ * the rental price is the payout, and the one charge — the listing fee — is
+ * stated on this same card, before the garment goes up.
  */
 function PricingStep({
   draft,
@@ -664,6 +671,7 @@ function PricingStep({
   const retailMinor = draft.retailPriceRupees ? draft.retailPriceRupees * 100 : null;
   const suggestedRate = Math.round(suggestedBaseRate(retailMinor) / 100);
   const suggestedDep = Math.round(suggestedDeposit(retailMinor) / 100);
+  const listingFee = quoteListingFee();
 
   const quote =
     draft.baseRateRupees && draft.baseDurationDays
@@ -745,12 +753,10 @@ function PricingStep({
           <p className="label text-ink-3 mb-4">On a {draft.baseDurationDays}-day rental</p>
 
           {/* Builds from the figures the owner actually typed, down to the
-              payout. The previous card jumped from the renter's total straight
-              to the payout, and those two do not differ by the commission
-              alone — the service fee, tax and delivery are charged on top and
-              were never the owner's — so the subtraction on screen did not
-              come out. Everything the owner is paid from is above the rule;
-              everything collected from the renter on top is below it. */}
+              payout. Nothing is deducted on the way: what the renter pays for
+              the rental is what the owner receives. GST and delivery are
+              collected from the renter on top and were never the owner's, so
+              they sit below the rule rather than looking like a deduction. */}
           <dl className="space-y-2">
             <div className="flex justify-between gap-4">
               <dt className="text-small text-ink-2">
@@ -789,10 +795,10 @@ function PricingStep({
               <dt className="text-small text-ink-2">
                 Almirah’s commission
                 <span className="meta text-ink-3 mt-0.5 block">
-                  {(quote.commissionBps / 100).toFixed(0)}% of your rental price
+                  We take nothing from a rental
                 </span>
               </dt>
-              <dd className="numeric text-small text-ink-2">−{formatMoney(quote.commission)}</dd>
+              <dd className="numeric text-small text-ink-2">Nothing</dd>
             </div>
 
             <div className="border-ink flex items-baseline justify-between gap-4 border-t pt-3">
@@ -800,6 +806,16 @@ function PricingStep({
               <dd className="numeric font-display text-ink text-[1.5rem] leading-none">
                 {formatMoney(quote.ownerEarnings)}
               </dd>
+            </div>
+
+            <div className="border-rule flex justify-between gap-4 border-t pt-3">
+              <dt className="text-small text-ink-2">
+                To publish this garment
+                <span className="meta text-ink-3 mt-0.5 block">
+                  Once, including GST — never again
+                </span>
+              </dt>
+              <dd className="numeric text-small text-ink-2">{formatMoney(listingFee.total)}</dd>
             </div>
           </dl>
 

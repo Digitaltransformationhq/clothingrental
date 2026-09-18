@@ -69,12 +69,18 @@ describe("quoteRental", () => {
 
     expect(quote.rentalSubtotal.amountMinor).toBe(85_000);
     expect(quote.deliveryFee.amountMinor).toBe(15_000);
-    // 6% of ₹850 = ₹51, above the ₹49 floor.
-    expect(quote.serviceFee.amountMinor).toBe(5_100);
-    // 18% of (85000 + 15000 + 5100) = 18918
-    expect(quote.tax.amountMinor).toBe(18_918);
+    // Nothing is added to the renter's side: we charge the owner once, when
+    // the garment is listed, and take nothing from the rental itself.
+    expect(quote.serviceFee.amountMinor).toBe(0);
+    // 18% of (85000 + 15000) = 18000
+    expect(quote.tax.amountMinor).toBe(18_000);
     expect(quote.deposit.amountMinor).toBe(200_000);
-    expect(quote.total.amountMinor).toBe(85_000 + 15_000 + 5_100 + 18_918 + 200_000);
+    expect(quote.total.amountMinor).toBe(85_000 + 15_000 + 18_000 + 200_000);
+  });
+
+  it("shows no service-fee line when there is no service fee", () => {
+    const quote = quoteRental({ pricing: saree, days: 3, fulfilment: "SHIPPING" });
+    expect(quote.lines.some((line) => line.key === "service-fee")).toBe(false);
   });
 
   it("keeps the deposit out of the cost of the rental", () => {
@@ -112,10 +118,18 @@ describe("quoteRental", () => {
     );
   });
 
-  it("pays the owner on the rental only, not on fees or tax", () => {
+  it("pays the owner the whole rental, taking no commission", () => {
     const quote = quoteRental({ pricing: saree, days: 3 });
-    // 85000 less 15% = 72250
-    expect(quote.ownerEarnings.amountMinor).toBe(72_250);
+    expect(quote.commission.amountMinor).toBe(0);
+    expect(quote.ownerEarnings.amountMinor).toBe(quote.rentalSubtotal.amountMinor);
+  });
+
+  it("pays the owner on the rental only, not on delivery or tax", () => {
+    const quote = quoteRental({ pricing: saree, days: 3, fulfilment: "SHIPPING" });
+    // Delivery and GST are collected and remitted by the marketplace; they are
+    // never the owner's to earn, commission or no commission.
+    expect(quote.ownerEarnings.amountMinor).toBe(85_000);
+    expect(quote.costToRenter.amountMinor).toBeGreaterThan(quote.ownerEarnings.amountMinor);
   });
 
   it("applies a discount before fees are calculated", () => {

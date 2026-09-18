@@ -44,7 +44,7 @@ async function main() {
     update: {},
     create: {
       key: "standard",
-      name: "Standard marketplace terms",
+      name: "Listing fee only — no commission on rentals",
       commissionBps: DEFAULT_FEE_SCHEDULE.commissionBps,
       serviceFeeBps: DEFAULT_FEE_SCHEDULE.serviceFeeBps,
       taxBps: DEFAULT_FEE_SCHEDULE.taxBps,

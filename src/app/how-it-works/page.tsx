@@ -5,7 +5,12 @@ import Link from "next/link";
 import { ButtonLink } from "@/components/ui/button";
 import { ORNAMENTS, Ornament } from "@/components/ui/ornament";
 import { Eyebrow, SectionHead } from "@/components/ui/primitives";
-import { DEFAULT_CANCELLATION_POLICY, DEFAULT_FEE_SCHEDULE } from "@/domain/rental/pricing";
+import { formatMoney } from "@/domain/money";
+import {
+  DEFAULT_CANCELLATION_POLICY,
+  DEFAULT_FEE_SCHEDULE,
+  quoteListingFee,
+} from "@/domain/rental/pricing";
 import { IMAGE_SIZES, mediaUrl } from "@/lib/media";
 
 export const metadata: Metadata = {
@@ -21,13 +26,12 @@ export const metadata: Metadata = {
  * Written to be read by somebody deciding whether to trust this, which means
  * the awkward parts — deposits, damage, cancellations, fees — get the most
  * space rather than the least. Every figure is pulled from the same constants
- * the pricing engine uses, so the page cannot quote a commission the system
- * does not charge.
+ * the pricing engine uses, so the page cannot quote a fee the system does not
+ * charge.
  */
 export default function HowItWorksPage() {
-  const commission = (DEFAULT_FEE_SCHEDULE.commissionBps / 100).toFixed(0);
-  const serviceFee = (DEFAULT_FEE_SCHEDULE.serviceFeeBps / 100).toFixed(0);
   const tax = (DEFAULT_FEE_SCHEDULE.taxBps / 100).toFixed(0);
+  const listingFee = quoteListingFee();
 
   return (
     <div className="pb-24">
@@ -67,7 +71,7 @@ export default function HowItWorksPage() {
               },
               {
                 title: "Pay once, including a deposit",
-                body: `The rental, a ${serviceFee}% service fee, ${tax}% GST and delivery are all shown before you pay. On top of that sits a refundable deposit, which is held — not paid to the owner.`,
+                body: `The rental, ${tax}% GST and delivery are all shown before you pay. We add no service fee — the price you see is the owner's. On top of that sits a refundable deposit, which is held, not paid to the owner.`,
               },
               {
                 title: "Wear it, then send it back",
@@ -106,11 +110,12 @@ export default function HowItWorksPage() {
                 If you’re lending
               </Eyebrow>
               <h2 id="lending-heading" className="display-3">
-                You keep {100 - Number(commission)}% and you keep control.
+                You keep every rupee, and you keep control.
               </h2>
               <p className="text-body-lg mt-6 max-w-md text-[color:color-mix(in_oklab,var(--color-ink-inverse)_80%,transparent)]">
-                List free, set your own price and dates, and decline anything you would rather not
-                lend. The {commission}% commission is taken only from completed rentals.
+                Set your own price and dates, and decline anything you would rather not lend.
+                Listing a garment costs {formatMoney(listingFee.total)} once. After that we take
+                nothing from what you earn, however often it goes out.
               </p>
               <div className="mt-8">
                 <ButtonLink
@@ -165,7 +170,7 @@ export default function HowItWorksPage() {
               ],
               [
                 "If you cancel",
-                `More than ${DEFAULT_CANCELLATION_POLICY.fullRefundDaysBefore} days before the start date, everything comes back. Inside that window, ${(DEFAULT_CANCELLATION_POLICY.partialRefundBps / 100).toFixed(0)}% of the rental is returned along with your full deposit — the service fee covers work already done.`,
+                `More than ${DEFAULT_CANCELLATION_POLICY.fullRefundDaysBefore} days before the start date, everything comes back. Inside that window, ${(DEFAULT_CANCELLATION_POLICY.partialRefundBps / 100).toFixed(0)}% of the rental is returned along with your full deposit — the remainder covers the owner for dates they had already held for you.`,
               ],
               [
                 "If the owner cancels",

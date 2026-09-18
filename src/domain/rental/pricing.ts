@@ -44,26 +44,56 @@ export interface ListingPricing {
 
 /**
  * The commercial terms in force. Read from `PlatformFee` rather than hardcoded,
- * and snapshotted onto the booking, so changing the commission tomorrow does
- * not silently restate what an owner was already promised.
+ * and snapshotted onto the booking, so changing the terms tomorrow does not
+ * silently restate what an owner was already promised.
+ *
+ * Almirah charges the owner once, when a garment is published, and takes
+ * nothing from what passes between the two parties afterwards. The rental is
+ * theirs: the renter pays the owner's price, the owner keeps all of it. The
+ * commission and service-fee rates below are therefore zero. They are kept in
+ * the schedule rather than deleted because bookings already taken carry their
+ * own snapshot of the rate that applied at the time, and dropping the fields
+ * would make those rows unreadable.
  */
 export interface FeeSchedule {
-  /** Withheld from the owner's earnings. */
+  /** Withheld from the owner's earnings. Zero: we do not take a cut of rentals. */
   readonly commissionBps: Bps;
-  /** Added to the renter's subtotal. */
+  /** Added to the renter's subtotal. Zero: the renter pays the owner's price. */
   readonly serviceFeeBps: Bps;
   /** Applied to rental and fees — never to the refundable deposit. */
   readonly taxBps: Bps;
-  /** Floor for the service fee, so small rentals still cover their costs. */
+  /** Floor for the service fee. Moot while the service fee is zero. */
   readonly minFeeMinor: number;
 }
 
 export const DEFAULT_FEE_SCHEDULE: FeeSchedule = {
-  commissionBps: 1500, // 15% marketplace commission
-  serviceFeeBps: 600, //  6% renter service fee
-  taxBps: 1800, // 18% GST on the rental and fees
-  minFeeMinor: 4900, // ₹49 minimum service fee
+  commissionBps: 0, // we take nothing from a rental
+  serviceFeeBps: 0, // the renter pays the owner's price, and no more
+  taxBps: 1800, // 18% GST, on the rental itself
+  minFeeMinor: 0, // no service fee to put a floor under
 };
+
+/**
+ * What an owner pays to put one garment on the marketplace.
+ *
+ * Charged once, when the listing is published — not per rental, and not per
+ * month. A garment that never goes out costs its owner this and nothing else;
+ * a garment that goes out fifty times costs the same.
+ *
+ * ── CHANGE THE PRICE HERE ──────────────────────────────────────────────────
+ * This single constant is what every page quotes. Nothing else needs editing.
+ */
+export const LISTING_FEE_MINOR = 9_900; // ₹99 per listing, one time
+
+/** The listing fee with GST added — what the owner actually pays at publish. */
+export function quoteListingFee(
+  fees: FeeSchedule = DEFAULT_FEE_SCHEDULE,
+  currency: Currency = DEFAULT_CURRENCY,
+): { fee: Money; tax: Money; total: Money } {
+  const fee = money(LISTING_FEE_MINOR, currency);
+  const tax = percentage(fee, fees.taxBps);
+  return { fee, tax, total: add(fee, tax) };
+}
 
 export type FulfilmentMode = "PICKUP" | "LOCAL_DELIVERY" | "SHIPPING";
 
@@ -251,12 +281,17 @@ export function quoteRental(input: QuoteInput): RentalQuote {
     });
   }
 
-  lines.push({
-    key: "service-fee",
-    label: "Service fee",
-    detail: "Verification, support and damage cover",
-    amount: serviceFee,
-  });
+  // Only when there is one to show. A "Service fee ₹0" row invites the question
+  // it is trying to answer, and the honest breakdown of a rental we take no cut
+  // of is one that simply does not mention us.
+  if (serviceFee.amountMinor > 0) {
+    lines.push({
+      key: "service-fee",
+      label: "Service fee",
+      detail: "Verification, support and damage cover",
+      amount: serviceFee,
+    });
+  }
 
   if (tax.amountMinor > 0) {
     lines.push({

@@ -147,7 +147,12 @@ export default async function CheckoutPage({ params }: { params: Params }) {
           },
         ]
       : []),
-    { label: "Service fee", amount: rental.serviceFeeMinor },
+    // Bookings taken under the old commercial terms carry a service fee and
+    // still have to render it; new ones are charged none, and a "₹0" row
+    // only raises the question it answers.
+    ...(rental.serviceFeeMinor > 0
+      ? [{ label: "Service fee", amount: rental.serviceFeeMinor }]
+      : []),
     ...(rental.taxMinor > 0 ? [{ label: "GST", amount: rental.taxMinor }] : []),
     ...(rental.discountMinor > 0 ? [{ label: "Discount", amount: -rental.discountMinor }] : []),
   ];

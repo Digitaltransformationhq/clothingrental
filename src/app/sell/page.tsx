@@ -5,14 +5,14 @@ import { ButtonLink } from "@/components/ui/button";
 import { ORNAMENTS, Ornament } from "@/components/ui/ornament";
 import { Eyebrow, SectionHead } from "@/components/ui/primitives";
 import { formatMoney } from "@/domain/money";
-import { DEFAULT_FEE_SCHEDULE, quoteRental } from "@/domain/rental/pricing";
+import { quoteListingFee, quoteRental } from "@/domain/rental/pricing";
 import { IMAGE_SIZES, mediaUrl } from "@/lib/media";
 import { getDb } from "@/server/db/client";
 
 export const metadata: Metadata = {
   title: "List your clothes",
   description:
-    "Your wardrobe can earn while you are not wearing it. Set your own price and dates, approve every request, and keep 85% of each rental.",
+    "Your wardrobe can earn while you are not wearing it. Set your own price and dates, approve every request, and keep every rupee of every rental.",
   alternates: { canonical: "/sell" },
 };
 
@@ -22,7 +22,7 @@ export const revalidate = 3600;
  * Owner acquisition.
  *
  * The audience here is a person who owns something expensive and is nervous
- * about lending it. So the page leads with the money, states the commission
+ * about lending it. So the page leads with the money, states the listing fee
  * plainly rather than burying it, and spends most of its length on what happens
  * if something goes wrong — which is the actual objection.
  */
@@ -40,6 +40,8 @@ export default async function SellPage() {
   ]);
 
   const averageRate = Math.round(averages._avg.baseRateMinor ?? 120_000);
+  const listingFee = quoteListingFee();
+
   const example = quoteRental({
     pricing: {
       currency: "INR",
@@ -127,8 +129,8 @@ export default async function SellPage() {
         <div className="page-width">
           <SectionHead
             eyebrow="What you'll earn"
-            title="You keep 85%. Here is the other 15%."
-            standfirst="Most marketplaces make you find this out after your first rental. The commission covers payment processing, identity checks, support and damage cover."
+            title={`You keep all of it. We charge ${formatMoney(listingFee.fee)} to list.`}
+            standfirst="Most marketplaces take a cut of every rental, and you find out after the first one. We charge once, when a garment goes up. What happens between you and the renter after that is yours."
           />
 
           <div className="mt-12 grid gap-10 lg:grid-cols-12 lg:gap-16">
@@ -144,14 +146,12 @@ export default async function SellPage() {
                   </div>
                   <div className="flex justify-between gap-4">
                     <dt className="text-small text-ink-2">
-                      Of which our commission
+                      Taken by Almirah
                       <span className="meta text-ink-3 mt-0.5 block">
-                        {(DEFAULT_FEE_SCHEDULE.commissionBps / 100).toFixed(0)}% of the rental
+                        No commission, no service fee
                       </span>
                     </dt>
-                    <dd className="numeric text-small text-ink-2">
-                      −{formatMoney(example.commission)}
-                    </dd>
+                    <dd className="numeric text-small text-ink-2">Nothing</dd>
                   </div>
                   <div className="border-ink flex justify-between gap-4 border-t pt-4">
                     <dt className="text-body text-ink font-medium">You receive</dt>
@@ -162,7 +162,9 @@ export default async function SellPage() {
                 </dl>
                 <p className="meta text-ink-3 mt-5">
                   Based on the average rate across {ownerCount.length} wardrobes currently listed.
-                  Listing is free; you are charged nothing until a piece actually goes out.
+                  You pay {formatMoney(listingFee.total)} once to publish this garment —{" "}
+                  {formatMoney(listingFee.fee)} plus GST — and nothing again, however many times it
+                  goes out.
                 </p>
               </div>
             </div>
@@ -170,8 +172,8 @@ export default async function SellPage() {
             <div className="lg:col-span-5">
               <dl className="border-rule border-t">
                 {[
-                  ["Listing", "Free, always"],
-                  ["Commission", "15% of each completed rental"],
+                  ["Listing", `${formatMoney(listingFee.total)} once, per garment`],
+                  ["Commission", "None, on any rental"],
                   ["Payouts", "Two working days after a piece comes home"],
                   ["Cancellation by you", "Free, but it affects your standing"],
                 ].map(([term, detail]) => (
