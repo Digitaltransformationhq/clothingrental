@@ -322,7 +322,7 @@ function ListYourClothes() {
 
               <dl className="mt-10 space-y-0">
                 {[
-                  { term: "You keep", detail: "85% of every rental" },
+                  { term: "You keep", detail: "every rupee of every rental" },
                   { term: "You decide", detail: "the price, the dates and who borrows it" },
                   { term: "You're covered", detail: "deposits held on every booking" },
                 ].map((row) => (

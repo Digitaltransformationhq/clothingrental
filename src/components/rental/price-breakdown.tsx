@@ -7,9 +7,10 @@ import { cn } from "@/lib/cn";
  *
  * Two rules, and they are the whole design:
  *
- *  1. Everything is shown before checkout. Service fee, GST and delivery all
- *     appear here, on the listing page, because a fee revealed at the payment
- *     step is the fastest way to lose somebody's trust permanently.
+ *  1. Everything is shown before checkout. GST and delivery appear here, on
+ *     the listing page, because a charge revealed at the payment step is the
+ *     fastest way to lose somebody's trust permanently. There is no service
+ *     fee to disclose: the marketplace is paid when a garment is listed.
  *
  *  2. The refundable deposit is separated from the cost of the rental by a
  *     rule and restated underneath. "Total ₹3,250" is true and misleading when

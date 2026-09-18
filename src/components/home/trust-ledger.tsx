@@ -33,7 +33,7 @@ const COMMITMENTS = [
   {
     term: "Prices without surprises",
     detail:
-      "Service fee, GST, delivery and deposit are all shown before you reach checkout. There is nothing added at the last step.",
+      "GST, delivery and deposit are all shown before you reach checkout. We add no service fee, and there is nothing added at the last step.",
   },
   {
     term: "Damage cover on every rental",

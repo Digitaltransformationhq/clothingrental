@@ -20,8 +20,8 @@ export const revalidate = 3600;
  *
  * An argument rather than a company history. The sustainability point is made
  * once, in numbers, and then dropped — a rental marketplace that lectures its
- * members about consumption while taking a commission on consumption is not a
- * position worth holding for four paragraphs.
+ * members about consumption is not a position worth holding for four
+ * paragraphs, however it happens to be paid.
  */
 export default async function AboutPage() {
   const db = await getDb();

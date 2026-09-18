@@ -65,7 +65,8 @@ const documents = {
       {
         heading: "Fees",
         paragraphs: [
-          "Renters pay the rental, a service fee, delivery where applicable, GST, and a refundable deposit. Owners are paid the rental less a 15% commission. Every figure is shown before payment.",
+          "Renters pay the rental, delivery where applicable, GST, and a refundable deposit. We add no service fee. Owners are paid the rental in full: we take no commission from it.",
+          "An owner pays a one-time fee to publish a listing, shown before the listing goes up. It is charged per garment, not per rental, and is not refundable once the listing is live. Every figure is shown before payment.",
         ],
       },
       {
@@ -201,8 +202,8 @@ const documents = {
       {
         heading: "If you cancel",
         paragraphs: [
-          "More than seven days before the start date: the rental, the service fee, delivery and the deposit are all refunded in full.",
-          "Seven days or fewer: half the rental is refunded, along with the full deposit and any delivery charge. The service fee is retained, because the work it pays for — verification, payment handling, support — has already been done.",
+          "More than seven days before the start date: the rental, delivery and the deposit are all refunded in full.",
+          "Seven days or fewer: half the rental is refunded, along with the full deposit and any delivery charge. The remainder goes to the owner, who held those dates for you and turned other renters away.",
           "After the rental has started: the rental is not refunded. Your deposit is still returned in full once the piece is back.",
         ],
       },

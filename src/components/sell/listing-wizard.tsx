@@ -36,9 +36,10 @@ import { Field, NumberField, OptionGrid, TextArea, Toggle } from "./fields";
  *
  *  · The preview on the right is the real `ListingTile` composition, updating
  *    as they type — they can see the thing they are making.
- *  · The pricing step shows what they would actually be paid, commission and
- *    all, rather than only what the renter pays. Owners care about one of those
- *    numbers and marketplaces habitually show the other.
+ *  · The pricing step shows what they would actually be paid — which is the
+ *    whole rental — and the one-time listing fee, rather than only what the
+ *    renter pays. Owners care about one of those numbers and marketplaces
+ *    habitually show the other.
  *
  * Progress is held in the URL hash and in session storage, so a refresh or a
  * misplaced back button does not discard twenty minutes of work.
