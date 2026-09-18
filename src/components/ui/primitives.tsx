@@ -105,12 +105,31 @@ export function RuleLink({
       )}
     >
       <span className="label text-ink">{children}</span>
-      <span
+      {/* Drawn rather than typed. The "→" glyph is whatever the fallback font
+          happens to ship — hairline in one, stubby in another — and it never
+          matches the weight of the label beside it. Stroked at the same 1.4 as
+          the other icons, it reads as part of the type.
+
+          Colour is inherited, not fixed: this link is used on the dark closing
+          section as well, where a hardcoded ink-3 left the arrow grey against
+          a white label. */}
+      <svg
+        viewBox="0 0 24 16"
         aria-hidden="true"
-        className="text-ink-3 group-hover:text-ink transition-transform duration-[--duration-base] ease-[--ease-editorial] group-hover:translate-x-1"
+        className={cn(
+          "h-4 w-6 shrink-0 self-center opacity-60",
+          "transition-[opacity,transform] duration-[--duration-base] ease-[--ease-editorial]",
+          "group-hover:translate-x-1 group-hover:opacity-100",
+        )}
       >
-        →
-      </span>
+        <path
+          d="M1.5 8h20M16 3.5 21.5 8l-5.5 4.5"
+          stroke="currentColor"
+          strokeWidth="1.4"
+          strokeLinecap="square"
+          strokeLinejoin="miter"
+        />
+      </svg>
     </Link>
   );
 }
