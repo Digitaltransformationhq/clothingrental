@@ -19,12 +19,12 @@
     "db:migrate": "prisma migrate dev",
     "db:deploy": "prisma migrate deploy",
     "db:studio": "prisma studio",
-    "db:reset": "tsx --conditions=react-server scripts/db-reset.ts",
-    "db:seed": "tsx --conditions=react-server prisma/seed.ts",
-    "db:provision": "tsx --conditions=react-server scripts/provision.ts",
-    "admin:create": "tsx --conditions=react-server scripts/create-admin.ts",
-    "db:remove-seed-listings": "tsx --conditions=react-server scripts/remove-seed-listings.ts",
-    "db:remove-seed-users": "tsx --conditions=react-server scripts/remove-seed-users.ts",
+    "db:reset": "tsx --env-file-if-exists=.env --conditions=react-server scripts/db-reset.ts",
+    "db:seed": "tsx --env-file-if-exists=.env --conditions=react-server prisma/seed.ts",
+    "db:provision": "tsx --env-file-if-exists=.env --conditions=react-server scripts/provision.ts",
+    "admin:create": "tsx --env-file-if-exists=.env --conditions=react-server scripts/create-admin.ts",
+    "db:remove-seed-listings": "tsx --env-file-if-exists=.env --conditions=react-server scripts/remove-seed-listings.ts",
+    "db:remove-seed-users": "tsx --env-file-if-exists=.env --conditions=react-server scripts/remove-seed-users.ts",
     "media:generate": "tsx scripts/generate-photography.ts",
     "test": "vitest run",
     "test:watch": "vitest",
@@ -32,7 +32,7 @@
     "postinstall": "prisma generate"
   },
   "prisma": {
-    "seed": "tsx --conditions=react-server prisma/seed.ts"
+    "seed": "tsx --env-file-if-exists=.env --conditions=react-server prisma/seed.ts"
   },
   "dependencies": {
     "@electric-sql/pglite": "0.5.8",

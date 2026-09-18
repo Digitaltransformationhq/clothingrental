@@ -39,7 +39,11 @@ export default defineConfig({
   schema: "prisma/schema.prisma",
   migrations: {
     path: "prisma/migrations",
-    seed: "tsx prisma/seed.ts",
+    // Same invocation as `npm run db:seed`. Without --conditions=react-server
+    // the seed resolves the client build of modules marked `server-only` and
+    // dies on its import guard; without the env file it would open the bundled
+    // database while DATABASE_URL names a real one.
+    seed: "tsx --env-file-if-exists=.env --conditions=react-server prisma/seed.ts",
   },
   datasource: {
     url: process.env.DATABASE_URL || PLACEHOLDER_URL,
