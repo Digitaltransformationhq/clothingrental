@@ -83,7 +83,7 @@ export const DEFAULT_FEE_SCHEDULE: FeeSchedule = {
  * ── CHANGE THE PRICE HERE ──────────────────────────────────────────────────
  * This single constant is what every page quotes. Nothing else needs editing.
  */
-export const LISTING_FEE_MINOR = 9_900; // ₹99 per listing, one time
+export const LISTING_FEE_MINOR = 4_900; // ₹49 per listing, one time
 
 /** The listing fee with GST added — what the owner actually pays at publish. */
 export function quoteListingFee(
