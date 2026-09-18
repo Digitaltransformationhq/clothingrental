@@ -1,4 +1,25 @@
+import { existsSync } from "node:fs";
+
 import { defineConfig } from "prisma/config";
+
+/**
+ * Prisma 7 no longer reads `.env` on its own.
+ *
+ * Next.js still does, so the application picks up `DATABASE_URL` and talks to
+ * the configured database while the CLI, in the very same checkout, falls back
+ * to the placeholder below and reports `Can't reach database server at
+ * 127.0.0.1:5432`. Worse than the error is the case where something *is*
+ * listening there: `prisma migrate deploy` would then apply migrations to the
+ * wrong database and say it succeeded.
+ *
+ * Loading it here restores the behaviour the scripts in `package.json` assume.
+ * Real environment variables win — `loadEnvFile` does not overwrite what is
+ * already set — so a deployment that injects its own configuration is
+ * unaffected, and CI without a `.env` is left alone.
+ */
+if (existsSync(".env") && typeof process.loadEnvFile === "function") {
+  process.loadEnvFile(".env");
+}
 
 /**
  * Prisma 7 moves connection configuration out of `schema.prisma` and into this
