@@ -65,6 +65,7 @@ const nextConfig: NextConfig = {
     "@prisma/adapter-pg",
     "pg",
     "sharp",
+    "nodemailer",
   ],
 
   images: {

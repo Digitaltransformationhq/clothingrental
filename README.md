@@ -260,7 +260,7 @@ route rather than a subtle failure later:
 | `ALLOW_SANDBOX_PAYMENTS`      | `true` only for a demonstration instance that takes no money. Without it, a sandbox provider is refused in production. |
 | `STORAGE_DRIVER`              | `s3`, with the bucket credentials. The filesystem is read-only on Vercel.                                              |
 | `NEXT_PUBLIC_UPLOAD_BASE_URL` | The bucket's public URL. Without it, uploaded images 404.                                                              |
-| `EMAIL_DRIVER`                | `resend`, with its key.                                                                                                |
+| `EMAIL_DRIVER`                | `resend` with its key, or `smtp` with `SMTP_USER`, `SMTP_PASSWORD` and a matching `EMAIL_FROM` (a Gmail app password). |
 
 Then create an administrator against the production database, with a password of your own:
 

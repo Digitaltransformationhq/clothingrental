@@ -1,14 +1,17 @@
 import "server-only";
 
+import nodemailer, { type Transporter } from "nodemailer";
+
 import { env } from "@/env";
 
 /**
  * Transactional email.
  *
- * A port with two implementations. `console` prints the rendered message to the
+ * A port with three implementations. `console` prints the rendered message to the
  * server log and sends nothing — which is what development and CI use, and is
  * the reason running this project cannot accidentally email a real person.
- * `resend` sends for real.
+ * `resend` and `smtp` send for real — `smtp` through any mail server, in
+ * practice a Gmail account with an app password, which needs no domain.
  *
  * Email is deliberately fire-and-forget at the call site: a rental must not
  * fail because a mail provider is slow. Failures are logged, not thrown.
@@ -68,14 +71,56 @@ class ResendEmailDriver implements EmailDriver {
   }
 }
 
+class SmtpEmailDriver implements EmailDriver {
+  private readonly transport: Transporter;
+
+  constructor(
+    options: { host: string; port: number; user: string; password: string },
+    private readonly from: string,
+  ) {
+    this.transport = nodemailer.createTransport({
+      host: options.host,
+      port: options.port,
+      // 465 is TLS from the first byte; 587 upgrades with STARTTLS.
+      secure: options.port === 465,
+      auth: { user: options.user, pass: options.password },
+      connectionTimeout: 10_000,
+      greetingTimeout: 10_000,
+      socketTimeout: 20_000,
+    });
+  }
+
+  async send(message: EmailMessage): Promise<void> {
+    await this.transport.sendMail({
+      from: this.from,
+      to: message.to,
+      subject: message.subject,
+      text: message.text,
+      html: message.html,
+      replyTo: message.replyTo,
+    });
+  }
+}
+
 let driver: EmailDriver | undefined;
 
 function getDriver(): EmailDriver {
   if (!driver) {
-    driver =
-      env.EMAIL_DRIVER === "resend" && env.RESEND_API_KEY
-        ? new ResendEmailDriver(env.RESEND_API_KEY, env.EMAIL_FROM)
-        : new ConsoleEmailDriver();
+    if (env.EMAIL_DRIVER === "resend" && env.RESEND_API_KEY) {
+      driver = new ResendEmailDriver(env.RESEND_API_KEY, env.EMAIL_FROM);
+    } else if (env.EMAIL_DRIVER === "smtp" && env.SMTP_USER && env.SMTP_PASSWORD) {
+      driver = new SmtpEmailDriver(
+        {
+          host: env.SMTP_HOST,
+          port: env.SMTP_PORT,
+          user: env.SMTP_USER,
+          password: env.SMTP_PASSWORD,
+        },
+        env.EMAIL_FROM,
+      );
+    } else {
+      driver = new ConsoleEmailDriver();
+    }
   }
   return driver;
 }
@@ -93,6 +138,11 @@ export async function sendEmail(message: EmailMessage): Promise<void> {
   } catch (error) {
     console.error(`[almirah] failed to send "${message.subject}" to ${message.to}:`, error);
   }
+}
+
+/** For `scripts/send-test-email.ts`: the same driver, with failures surfaced. */
+export async function __sendEmailOrThrow(message: EmailMessage): Promise<void> {
+  await getDriver().send(message);
 }
 
 /** Test seam. */

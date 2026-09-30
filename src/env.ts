@@ -103,8 +103,16 @@ const schema = z.object({
   NEXT_PUBLIC_MEDIA_BASE_URL: z.preprocess(emptyToUndefined, z.string().default("/photography")),
 
   // ── Email ─────────────────────────────────────────────────────────────────
-  EMAIL_DRIVER: z.preprocess(emptyToUndefined, z.enum(["console", "resend"]).default("console")),
+  EMAIL_DRIVER: z.preprocess(
+    emptyToUndefined,
+    z.enum(["console", "resend", "smtp"]).default("console"),
+  ),
   RESEND_API_KEY: optionalString,
+  // SMTP defaults are Gmail's; only the user and app password need setting.
+  SMTP_HOST: z.preprocess(emptyToUndefined, z.string().default("smtp.gmail.com")),
+  SMTP_PORT: z.preprocess(emptyToUndefined, z.coerce.number().int().default(465)),
+  SMTP_USER: optionalString,
+  SMTP_PASSWORD: optionalString,
   EMAIL_FROM: z.preprocess(emptyToUndefined, z.string().default("Almirah <hello@almirah.example>")),
 
   // ── Search ────────────────────────────────────────────────────────────────
@@ -241,6 +249,9 @@ function parseEnv(): Env {
   }
   if (env.EMAIL_DRIVER === "resend" && !env.RESEND_API_KEY) {
     problems.push("EMAIL_DRIVER is 'resend' but RESEND_API_KEY is missing.");
+  }
+  if (env.EMAIL_DRIVER === "smtp" && (!env.SMTP_USER || !env.SMTP_PASSWORD)) {
+    problems.push("EMAIL_DRIVER is 'smtp' but SMTP_USER/SMTP_PASSWORD are missing.");
   }
   if (env.SEARCH_DRIVER === "meilisearch" && !env.MEILISEARCH_HOST) {
     problems.push("SEARCH_DRIVER is 'meilisearch' but MEILISEARCH_HOST is missing.");
