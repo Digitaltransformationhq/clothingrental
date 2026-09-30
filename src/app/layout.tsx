@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Archivo, Bodoni_Moda } from "next/font/google";
+import localFont from "next/font/local";
 
 import { SiteFooter } from "@/components/layout/site-footer";
 import { SiteHeader } from "@/components/layout/site-header";
@@ -11,20 +11,29 @@ import "./globals.css";
  * A high-contrast fashion serif for display, a neutral grotesk for everything
  * with a job to do. Both are variable fonts, self-hosted by next/font, so there
  * is no render-blocking request to a third party and no flash of fallback text.
+ *
+ * The files live in the repository (Latin subset, from Google Fonts) rather
+ * than being fetched by next/font/google at build time: a build must not
+ * depend on what Google's CSS API happens to return that day, and one that
+ * skipped the cache on Vercel failed on exactly that.
  */
-const bodoni = Bodoni_Moda({
-  subsets: ["latin"],
+const bodoni = localFont({
+  src: [
+    { path: "./fonts/bodoni-moda-latin.woff2", weight: "400 500", style: "normal" },
+    { path: "./fonts/bodoni-moda-italic-latin.woff2", weight: "400 500", style: "italic" },
+  ],
   variable: "--font-bodoni",
   display: "swap",
-  weight: ["400", "500"],
-  style: ["normal", "italic"],
+  fallback: ["Georgia", "Times New Roman", "serif"],
 });
 
-const archivo = Archivo({
-  subsets: ["latin"],
+const archivo = localFont({
+  src: "./fonts/archivo-latin.woff2",
+  weight: "400 600",
+  style: "normal",
   variable: "--font-archivo",
   display: "swap",
-  weight: ["400", "500", "600"],
+  fallback: ["system-ui", "Segoe UI", "Arial", "sans-serif"],
 });
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
