@@ -18,6 +18,7 @@ const COLUMNS = [
       { href: "/shop/lehengas", label: "Lehengas" },
       { href: "/shop/dresses", label: "Dresses" },
       { href: "/shop/blazers", label: "Tailoring" },
+      { href: "/shop/jewellery", label: "Jewellery" },
       { href: "/collections", label: "Collections" },
     ],
   },

@@ -26,6 +26,7 @@ const BROWSE = [
   { href: "/shop/dresses", label: "Dresses" },
   { href: "/shop/blazers", label: "Tailoring" },
   { href: "/shop/sherwanis", label: "Sherwanis" },
+  { href: "/shop/jewellery", label: "Jewellery" },
   { href: "/collections", label: "Collections" },
 ] as const;
 

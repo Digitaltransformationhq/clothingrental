@@ -41,6 +41,12 @@ export const SEED_CATEGORIES: readonly SeedCategory[] = [
     tagline: "The clothes between the occasions.",
     sortOrder: 40,
   },
+  {
+    slug: "jewellery",
+    name: "Jewellery",
+    tagline: "The last thing you put on, and the first thing they notice.",
+    sortOrder: 50,
+  },
 
   // Indian wear.
   {
@@ -153,6 +159,43 @@ export const SEED_CATEGORIES: readonly SeedCategory[] = [
     tagline: "Where good tailoring shows first.",
     parent: "everyday",
     sortOrder: 44,
+  },
+
+  // Jewellery.
+  {
+    slug: "necklace-sets",
+    name: "Necklace sets",
+    tagline: "Choker, rani haar, and the earrings that came with it.",
+    parent: "jewellery",
+    sortOrder: 51,
+  },
+  {
+    slug: "earrings",
+    name: "Earrings",
+    tagline: "Jhumkas, chandbalis and studs that catch the light.",
+    parent: "jewellery",
+    sortOrder: 52,
+  },
+  {
+    slug: "bangles-bracelets",
+    name: "Bangles & bracelets",
+    tagline: "Kadas, chudas and a stack that sounds right.",
+    parent: "jewellery",
+    sortOrder: 53,
+  },
+  {
+    slug: "maang-tikkas",
+    name: "Maang tikkas",
+    tagline: "One piece, centre parting, every photograph.",
+    parent: "jewellery",
+    sortOrder: 54,
+  },
+  {
+    slug: "rings",
+    name: "Rings",
+    tagline: "Cocktail rings and the hand that carries them.",
+    parent: "jewellery",
+    sortOrder: 55,
   },
 ];
 
