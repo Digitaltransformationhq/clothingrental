@@ -24,6 +24,7 @@ export function AuthForm({ mode }: { mode: "sign-in" | "sign-up" }) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const next = searchParams.get("next") ?? "/";
+  const justReset = mode === "sign-in" && searchParams.get("reset") === "1";
 
   const [pending, setPending] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
@@ -83,6 +84,14 @@ export function AuthForm({ mode }: { mode: "sign-in" | "sign-up" }) {
 
   return (
     <form onSubmit={onSubmit} noValidate>
+      {justReset && !error ? (
+        <p
+          role="status"
+          className="border-ink bg-surface text-small text-ink mb-6 border-l-2 px-4 py-3"
+        >
+          Password changed. Sign in with the new one.
+        </p>
+      ) : null}
       {error ? (
         <p
           role="alert"
@@ -120,6 +129,13 @@ export function AuthForm({ mode }: { mode: "sign-in" | "sign-up" }) {
           error={fieldErrors.password}
           hint={mode === "sign-up" ? "At least ten characters." : undefined}
         />
+        {mode === "sign-in" ? (
+          <p className="meta -mt-2 text-right">
+            <Link href="/auth/forgot-password" className="link-underline text-ink-2">
+              Forgotten your password?
+            </Link>
+          </p>
+        ) : null}
       </div>
 
       <Button type="submit" fullWidth size="lg" loading={pending} className="mt-8">
@@ -167,7 +183,7 @@ export function AuthForm({ mode }: { mode: "sign-in" | "sign-up" }) {
   );
 }
 
-function Field({
+export function Field({
   label,
   name,
   type = "text",

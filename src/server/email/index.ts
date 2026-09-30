@@ -110,6 +110,20 @@ const APP_URL = env.NEXT_PUBLIC_APP_URL.replace(/\/$/, "");
  * that renders badly in one client is worse than none.
  */
 export const emails = {
+  passwordReset: (input: { to: string; name: string; url: string }) => ({
+    to: input.to,
+    subject: "Reset your Almirah password",
+    text: `${input.name},
+
+Someone — hopefully you — asked to reset the password on your Almirah account. Choose a new one here:
+
+${input.url}
+
+The link works once and expires in an hour. If you didn't ask for this, ignore this email; your password stays as it is.
+
+— Almirah`,
+  }),
+
   rentalRequested: (input: {
     to: string;
     ownerName: string;

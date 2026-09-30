@@ -3,9 +3,11 @@ import "server-only";
 import { betterAuth } from "better-auth";
 import { prismaAdapter } from "better-auth/adapters/prisma";
 import { nextCookies } from "better-auth/next-js";
+import { after } from "next/server";
 
 import { env, isProduction } from "@/env";
 import { getDb } from "@/server/db/client";
+import { emails, sendEmail } from "@/server/email";
 
 /**
  * Authentication.
@@ -53,6 +55,18 @@ async function createAuth() {
       // booking service rather than here.
       requireEmailVerification: false,
       autoSignIn: true,
+
+      // A reset link is a key to the account, so it is short-lived, single-use
+      // (better-auth consumes the token), and using it signs out every other
+      // session — whoever prompted the reset should not stay signed in.
+      resetPasswordTokenExpiresIn: 60 * 60,
+      revokeSessionsOnPasswordReset: true,
+      sendResetPassword: async ({ user, url }) => {
+        // Sent after the response, not before it. Awaiting the mail provider
+        // would make a request for a real account measurably slower than one
+        // for an unknown address, and the form would leak which is which.
+        after(() => sendEmail(emails.passwordReset({ to: user.email, name: user.name, url })));
+      },
     },
 
     socialProviders:
@@ -114,7 +128,8 @@ async function createAuth() {
         // Credential endpoints are the ones worth guessing at.
         "/sign-in/email": { window: 60, max: 5 },
         "/sign-up/email": { window: 300, max: 5 },
-        "/forget-password": { window: 300, max: 3 },
+        "/request-password-reset": { window: 300, max: 3 },
+        "/reset-password": { window: 300, max: 10 },
       },
     },
 
